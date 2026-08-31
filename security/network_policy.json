@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "default_policy": {
+    "require_https": true,
+    "custom_hosts": "deny-by-default",
+    "review_rule": "Only one validated TikTok URL and the documented Ark endpoint may be contacted."
+  },
+  "scripts": {
+    "scripts/download_tiktok.py": {
+      "purpose": "Resolve metadata and download media for one user-provided TikTok HTTPS URL.",
+      "allowed_hosts": [
+        "tiktok.com",
+        "www.tiktok.com",
+        "*.tiktokcdn.com",
+        "*.byteoversea.com"
+      ],
+      "allowed_path_prefixes": [
+        "/@",
+        "/video/",
+        "/"
+      ],
+      "requires_https": true,
+      "custom_url_policy": "not supported; the input hostname must be tiktok.com or a subdomain",
+      "timeout_seconds": 1800,
+      "auth": "optional user-authorized browser cookies or cookie file"
+    },
+    "scripts/assetize_tiktok.py": {
+      "purpose": "Optionally upload the full video to Volcengine Ark for one-to-one semantic shot labels.",
+      "allowed_hosts": [
+        "ark.cn-beijing.volces.com"
+      ],
+      "allowed_path_prefixes": [
+        "/api/v3/chat/completions"
+      ],
+      "requires_https": true,
+      "custom_url_policy": "not supported",
+      "timeout_seconds": 900,
+      "auth": "ARK_API_KEY, ARK_API_KEY_FILE, or explicit --api-key-file"
+    }
+  }
+}

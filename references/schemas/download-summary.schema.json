@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tiktok-video-splitter:download-summary",
+  "title": "TikTok Video Splitter Download Summary",
+  "type": "object",
+  "required": ["schema_version", "source_type", "video"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "source_type": {"enum": ["tiktok_url", "local_mp4"]},
+    "source_url": {"type": ["string", "null"]},
+    "resolved_url": {"type": ["string", "null"]},
+    "downloaded_at_utc": {"type": ["string", "null"]},
+    "video": {
+      "type": "object",
+      "required": ["id", "path", "bytes", "sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      },
+      "additionalProperties": true
+    },
+    "download": {"type": ["object", "null"]}
+  },
+  "additionalProperties": true
+}

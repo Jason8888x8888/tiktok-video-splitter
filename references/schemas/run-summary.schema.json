@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:tiktok-video-splitter:run-summary",
+  "title": "TikTok Video Splitter Run Summary",
+  "type": "object",
+  "required": ["schema_version", "skill_version", "status", "stage"],
+  "properties": {
+    "schema_version": {"const": 2},
+    "skill_version": {"type": "string"},
+    "status": {"enum": ["running", "planned", "complete", "failed"]},
+    "stage": {
+      "enum": [
+        "copy_source",
+        "probe",
+        "detect",
+        "label",
+        "plan",
+        "render",
+        "finalize"
+      ]
+    },
+    "recoverable": {"type": "boolean"},
+    "next_action": {"type": ["string", "null"]},
+    "error": {
+      "type": "object",
+      "required": ["type", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"type": "string"},
+        "message": {"type": "string"}
+      }
+    },
+    "quality": {"type": "object"},
+    "resources": {"type": "object"},
+    "model": {"type": "object"},
+    "render": {"type": "object"},
+    "validation": {"type": "object"}
+  },
+  "additionalProperties": true
+}

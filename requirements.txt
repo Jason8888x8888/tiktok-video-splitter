@@ -1,0 +1,2 @@
+# No third-party Python packages are required.
+# Runtime tools: Python 3.10+, FFmpeg/FFprobe, and optionally yt-dlp and curl.

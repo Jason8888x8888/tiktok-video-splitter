@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0",
+  "reviewed_at": "2026-08-31",
+  "capabilities": {
+    "network": {
+      "decision": "approved",
+      "reviewer": "Repository maintainer",
+      "scope": "One validated TikTok download and one explicitly authorized Ark semantic-label request, bounded by security/network_policy.json.",
+      "reason": "Network access is required only for URL input or the opt-in hybrid mode and is disabled for ordinary local splitting.",
+      "expires_at": "2027-08-31",
+      "evidence": [
+        "security/network_policy.json",
+        "SKILL.md"
+      ],
+      "target_enforcement": {
+        "openai": "Agent must request explicit upload and cost authorization before hybrid mode.",
+        "claude": "Agent must request explicit upload and cost authorization before hybrid mode.",
+        "generic": "Local mode is the default; network modes require explicit user intent.",
+        "vscode": "Workspace trust and explicit user intent are required before network modes."
+      }
+    },
+    "file_write": {
+      "decision": "approved",
+      "reviewer": "Repository maintainer",
+      "scope": "The user-selected output parent, bounded temporary work directories, atomic index files, backups during confirmed render replacement, and no other persistent locations.",
+      "reason": "File writes are necessary to create the requested shot package while atomic rename and overwrite refusal protect existing user assets.",
+      "expires_at": "2027-08-31",
+      "evidence": [
+        "SKILL.md",
+        "tests/test_assetize_tiktok.py"
+      ],
+      "target_enforcement": {
+        "openai": "Write only to the explicit output directory and require confirmation for replacement.",
+        "claude": "Write only to the explicit output directory and require confirmation for replacement.",
+        "generic": "Output paths are explicit and existing targets are refused by default.",
+        "vscode": "Workspace trust and an explicit output path are required."
+      }
+    },
+    "subprocess": {
+      "decision": "approved",
+      "reviewer": "Repository maintainer",
+      "scope": "FFmpeg, FFprobe, yt-dlp, and curl invoked as argument arrays with timeouts and a sanitized child environment.",
+      "reason": "Deterministic media processing and bounded downloads require established external tools, while shell interpolation and credential inheritance are prohibited.",
+      "expires_at": "2027-08-31",
+      "evidence": [
+        "scripts/runtime_safety.py",
+        "tests/test_assetize_tiktok.py"
+      ],
+      "target_enforcement": {
+        "openai": "Use only bundled scripts and their declared external tools.",
+        "claude": "Use only bundled scripts and their declared external tools.",
+        "generic": "Subprocess arguments, environment, and timeouts are bounded in code.",
+        "vscode": "Workspace trust is required before running external tools."
+      }
+    }
+  }
+}
