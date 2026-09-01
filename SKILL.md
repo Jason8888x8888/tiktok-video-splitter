@@ -1,7 +1,7 @@
 ---
 name: tiktok-video-splitter
 description: |
-  Split one user-provided TikTok video or local MP4 into ordered physical shots, matching keyframes, an overview image, and traceable indexes for remix asset preparation. Use when the user explicitly asks for TikTok 视频拆分、物理分镜、视频切片、混剪素材整理或剪映/CapCut 兼容素材。Local mode is offline and zero-token; hybrid mode adds one-to-one semantic labels only after explicit upload and cost authorization. Do not use for download-only requests, account monitoring, batch scraping, fixed-duration chopping, transcription, subtitles, narrative analysis, or final montage editing.
+  Split one user-provided TikTok video or local MP4 into ordered physical shots, matching keyframes, an overview image, traceable indexes, and optionally a local CapCut draft via cutcli for remix asset preparation. Use when the user explicitly asks for TikTok 视频拆分、物理分镜、视频切片、混剪素材整理、剪映/CapCut 兼容素材或导入 CapCut 草稿。Local mode is offline and zero-token; hybrid mode adds one-to-one semantic labels only after explicit upload and cost authorization. Do not use for download-only requests, account monitoring, batch scraping, fixed-duration chopping, transcription, subtitles, narrative analysis, or final montage editing.
 ---
 
 # TikTok 视频拆分
@@ -15,7 +15,8 @@ description: |
 - 默认拆解灵敏度为 `--scene-threshold auto`：先本地预扫描视频，不上传、不用模型，再根据真实转场密度、运动强度、候选切点数量和视频时长自动选择阈值与最短分镜时长。
 - “AI 语义拆解”（CLI：`hybrid`）只给既有物理分镜逐一命名，不得合并、拆分、重排或修改时间边界。
 - 下载失败时不绕过登录、地区、验证码、访问控制或平台限制。
-- 下载-only 请求应交给专门下载 Skill；CapCut 草稿同步、字幕、叙事分析和最终剪辑不属于本 Skill。
+- 下载-only 请求应交给专门下载 Skill；字幕、叙事分析和最终剪辑不属于本 Skill。
+- CapCut 草稿同步是可选交付阶段，不是第三种分析模式：只有用户明确要求“导入 CapCut/剪映草稿”或 CLI 显式传 `--capcut-stage draft` 时才执行。
 
 ## 安全约束
 
@@ -24,6 +25,7 @@ description: |
 3. API Key 只通过 `--api-key-file`、`ARK_API_KEY` 或 `ARK_API_KEY_FILE` 读取。外部子进程使用最小环境变量，不继承 API Key。
 4. yt-dlp 强制忽略用户全局配置，所有下载行为必须由本 Skill 显式声明。
 5. 默认拒绝覆盖最终输出或 `.partial` 目录；`--replace-assets` 仅用于用户明确授权的重新渲染。
+6. `--capcut-stage draft` 会写入本机 CapCut 草稿目录，依赖本机已安装并可执行的 `cutcli`；不得改用 UI 自动点击或要求用户手动导入来替代该路径。
 
 ## 开始前
 
@@ -35,7 +37,7 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --validate-only
 ```
 
-预检必须返回机器可读能力矩阵，并检查：输入、输出父目录、FFmpeg、FFprobe，以及按需检查 yt-dlp、curl、提示词、Cookie 文件和 Ark 凭据。`status=invalid` 时停止。
+预检必须返回机器可读能力矩阵，并检查：输入、输出父目录、FFmpeg、FFprobe，以及按需检查 yt-dlp、curl、cutcli、CapCut 草稿目录、提示词、Cookie 文件和 Ark 凭据。`status=invalid` 时停止。
 
 ## 执行
 
@@ -97,6 +99,17 @@ python3 scripts/assetize_tiktok.py \
   --replace-assets
 ```
 
+需要直接写入本机 CapCut 草稿时，在素材包生成命令后添加：
+
+```bash
+python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
+  --output-parent "/absolute/path/output" \
+  --mode local \
+  --capcut-stage draft
+```
+
+可用 `--capcut-draft-name "草稿名"` 指定草稿名。该阶段会调用 `cutcli draft create` 和 `cutcli videos add`，创建 1080×1920 草稿、复制分镜视频到草稿 `Resources`，并保持原视频音量为 1。草稿名已存在、缺少 `cutcli` 或本机 CapCut 草稿目录不可写时，素材包仍保留，并在 `capcut-draft-summary.json` 记录失败原因。
+
 模型约束见 [references/shot-label-prompt.md](references/shot-label-prompt.md)，JSON 契约见 [references/schemas](references/schemas)。
 
 ## 输出
@@ -113,10 +126,11 @@ python3 scripts/assetize_tiktok.py \
     ├── 分镜资产清单.csv
     ├── segments.json
     ├── download-summary.json
+    ├── capcut-draft-summary.json
     └── run-summary.json
 ```
 
-分镜视频统一编码为 MP4/H.264/yuv420p；存在音频时编码为 AAC。这是“剪映/CapCut 兼容编码配置”，不能宣称已经写入真实 CapCut 草稿或通过真实编辑器导入验证。
+分镜视频统一编码为 MP4/H.264/yuv420p；存在音频时编码为 AAC。未传 `--capcut-stage draft` 时只能宣称“剪映/CapCut 兼容编码配置”；传入后可宣称“已通过 cutcli 写入本机 CapCut 草稿并生成 smoke summary”，但不能宣称官方认证或跨版本保证。
 
 ## 验收
 

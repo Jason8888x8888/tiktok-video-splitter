@@ -2,6 +2,18 @@
 
 All notable changes follow semantic versioning.
 
+## [0.1.0-beta.4] - 2026-09-01
+
+### Added
+
+- Optional `--capcut-stage draft` delivery stage that creates a local CapCut draft via `cutcli` after the shot package is complete.
+- `capcut-draft-summary.json` smoke evidence with draft path, material counts, timeline duration, Resources backing, and original-audio volume checks.
+- Read-only preflight checks for `cutcli`, the local CapCut draft root, and explicit draft-name collisions.
+
+### Changed
+
+- CapCut wording now distinguishes three states: compatible clip encoding, optional local draft creation, and no claim of official editor certification.
+
 ## [0.1.0-beta.3] - 2026-09-01
 
 ### Added

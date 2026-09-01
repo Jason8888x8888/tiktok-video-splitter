@@ -17,6 +17,7 @@ sys.path.insert(0, str(SCRIPTS_DIR))
 
 import assetize_tiktok as assetizer
 import download_tiktok as downloader
+import preflight_checks
 import runtime_safety
 
 
@@ -206,6 +207,7 @@ class ModeTests(unittest.TestCase):
         )
         self.assertEqual(assetizer.selected_mode(args), "local")
         self.assertEqual(args.scene_threshold, "auto")
+        self.assertEqual(args.capcut_stage, "none")
 
     def test_numeric_scene_threshold_is_supported(self) -> None:
         args = assetizer.build_parser().parse_args(
@@ -296,6 +298,81 @@ class ModeTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "cannot be combined"):
             assetizer.validate_arguments(args)
+
+    def test_capcut_draft_requires_rendered_clips(self) -> None:
+        args = assetizer.build_parser().parse_args(
+            [
+                "video.mp4",
+                "--output-parent",
+                "/tmp/output",
+                "--plan-only",
+                "--capcut-stage",
+                "draft",
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "requires rendered clips"):
+            assetizer.validate_arguments(args)
+
+    def test_capcut_draft_name_requires_draft_stage(self) -> None:
+        args = assetizer.build_parser().parse_args(
+            [
+                "video.mp4",
+                "--output-parent",
+                "/tmp/output",
+                "--capcut-draft-name",
+                "草稿A",
+            ]
+        )
+        with self.assertRaisesRegex(ValueError, "requires --capcut-stage draft"):
+            assetizer.validate_arguments(args)
+
+
+class CapCutDraftTests(unittest.TestCase):
+    def test_default_capcut_draft_name_is_stable_and_safe(self) -> None:
+        data = {
+            "source": {"title": "  马桶/清洁剂：测试  ", "video_id": "local-abc123"},
+            "segments": [{}, {}, {}],
+        }
+        self.assertEqual(
+            assetizer.default_capcut_draft_name(data),
+            "视频拆解-马桶_清洁剂_测试-local-abc123-3段",
+        )
+
+    def test_capcut_video_infos_use_rendered_clip_paths_and_microseconds(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            package_root = Path(temp_dir)
+            clips_dir = package_root / "01_分镜视频"
+            clips_dir.mkdir()
+            (clips_dir / "001_分镜_00m00s-00m01s.mp4").write_bytes(b"clip-1")
+            (clips_dir / "002_分镜_00m01s-00m03s.mp4").write_bytes(b"clip-2")
+            data = {
+                "source": {
+                    "duration_ms": 3000,
+                    "probe": {"video": {"width": 720, "height": 1280}},
+                },
+                "segments": [
+                    {
+                        "start_ms": 0,
+                        "end_ms": 1000,
+                        "purpose": "分镜",
+                        "content": "00m00s-00m01s",
+                    },
+                    {
+                        "start_ms": 1000,
+                        "end_ms": 3000,
+                        "purpose": "分镜",
+                        "content": "00m01s-00m03s",
+                    },
+                ],
+            }
+            infos = assetizer.build_capcut_video_infos(package_root, data)
+        self.assertEqual(len(infos), 2)
+        self.assertTrue(infos[0]["videoUrl"].endswith("001_分镜_00m00s-00m01s.mp4"))
+        self.assertEqual(infos[0]["width"], 720)
+        self.assertEqual(infos[0]["height"], 1280)
+        self.assertEqual(infos[0]["duration"], 1_000_000)
+        self.assertEqual(infos[1]["duration"], 2_000_000)
+        self.assertEqual(infos[0]["volume"], 1)
 
 
 class PrivacyAndSafetyTests(unittest.TestCase):
@@ -390,6 +467,31 @@ class PreflightTests(unittest.TestCase):
         )
         self.assertFalse(credential_check["ok"])
         self.assertFalse(report["api_called"])
+
+    def test_capcut_preflight_requires_cutcli_when_draft_requested(self) -> None:
+        args = assetizer.build_parser().parse_args(
+            [
+                "https://www.tiktok.com/@tester/video/1234567890",
+                "--output-parent",
+                "/tmp/output",
+                "--validate-only",
+                "--capcut-stage",
+                "draft",
+            ]
+        )
+
+        def fake_which(name: str) -> str | None:
+            if name == "cutcli":
+                return None
+            return f"/usr/bin/{name}"
+
+        with mock.patch.object(preflight_checks.shutil, "which", side_effect=fake_which):
+            report = assetizer.build_preflight_report(args)
+        self.assertEqual(report["status"], "invalid")
+        cutcli_check = next(
+            item for item in report["checks"] if item["name"] == "tool:cutcli"
+        )
+        self.assertFalse(cutcli_check["ok"])
 
 
 class SchemaContractTests(unittest.TestCase):

@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 
-把用户明确提供的一条 TikTok 视频或本地 MP4 拆成连续物理分镜，并生成同名关键帧、总览图、CSV 与可追溯 JSON。默认全程本地、零 Token；只有用户明确授权上传和费用时，才使用模型逐镜补充语义名称。
+把用户明确提供的一条 TikTok 视频或本地 MP4 拆成连续物理分镜，并生成同名关键帧、总览图、CSV 与可追溯 JSON。默认全程本地、零 Token；只有用户明确授权上传和费用时，才使用模型逐镜补充语义名称。需要时可显式开启 `--capcut-stage draft`，用 `cutcli` 直接创建本机 CapCut 草稿。
 
 ## 安装
 
@@ -44,11 +44,12 @@ npx skills add . --list
     ├── candidates.json
     ├── 分镜资产清单.csv
     ├── segments.json
+    ├── capcut-draft-summary.json
     ├── download-summary.json
     └── run-summary.json
 ```
 
-运行摘要会记录场景事件、自动调参证据、人工复核建议、工具版本、输入哈希、Token 使用和失败阶段。结构校验通过不代表语义已经人工核验。
+运行摘要会记录场景事件、自动调参证据、人工复核建议、工具版本、输入哈希、Token 使用、CapCut 草稿写入证据和失败阶段。结构校验通过不代表语义已经人工核验。
 
 ## 前置条件
 
@@ -56,6 +57,7 @@ npx skills add . --list
 - FFmpeg 与 FFprobe
 - yt-dlp：仅处理 TikTok URL 时需要
 - curl 与 Ark API Key：仅 `hybrid` 语义模式需要
+- cutcli：仅 `--capcut-stage draft` 写入本机 CapCut 草稿时需要
 
 macOS 可通过 `brew install ffmpeg` 安装 FFmpeg；Ubuntu 可运行 `sudo apt-get install ffmpeg`。yt-dlp 请参考其[官方安装说明](https://github.com/yt-dlp/yt-dlp/wiki/Installation)。
 
@@ -77,6 +79,17 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --mode local
 ```
 
+本地零 Token 拆解并写入 CapCut 草稿：
+
+```bash
+python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
+  --output-parent "/absolute/path/output" \
+  --mode local \
+  --capcut-stage draft
+```
+
+可用 `--capcut-draft-name "草稿名"` 指定草稿名。该阶段会创建 1080×1920 草稿，把分镜视频加入一条连续视频轨，并将分镜素材复制到草稿 `Resources`；`03_索引记录/capcut-draft-summary.json` 会记录素材数量、时间线时长、Resources backing 和音量检查。
+
 也可把输入替换为一条用户明确提供的 TikTok HTTPS URL。默认 `--scene-threshold auto` 先做本地预扫描，再根据真实转场密度选择阈值与最短分镜；它不会上传视频。该策略是启发式判断，异常素材应检查总览图并改用 `--scene-threshold 0.30` 等手动数值。
 
 ## AI 语义模式
@@ -94,7 +107,7 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
 
 适用请求：物理分镜、视频切片、混剪素材整理、关键帧与索引生成。
 
-不适用：只下载、账号监控、批量抓取、固定时长机械切割、字幕/逐字稿、叙事分析、CapCut 草稿写入和最终成片剪辑。
+不适用：只下载、账号监控、批量抓取、固定时长机械切割、字幕/逐字稿、叙事分析和最终成片剪辑。CapCut 草稿写入仅作为显式开启的交付阶段，不改变分镜分析模式。
 
 ## 安全与隐私
 
@@ -109,7 +122,7 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
 
 ## 输出兼容性
 
-分镜视频使用 MP4/H.264/yuv420p；存在音频时使用 AAC。这表示“剪映/CapCut 兼容编码配置”，不代表已写入 CapCut 草稿或通过真实编辑器导入认证。
+分镜视频使用 MP4/H.264/yuv420p；存在音频时使用 AAC。未传 `--capcut-stage draft` 时，这只表示“剪映/CapCut 兼容编码配置”；传入后，Skill 会通过 `cutcli` 写入本机 CapCut 草稿并生成 smoke summary，但不宣称官方认证或跨版本保证。
 
 ## 故障排查
 
@@ -120,6 +133,7 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
 | 出现 `.partial` | 读取 `03_索引记录/run-summary.json` 的 `stage`、`recoverable` 和 `next_action`。 |
 | `events_truncated=true` | 检查总览图并人工复核，必要时显式调整 `--max-scene-events`。 |
 | 分镜过密或过疏 | 检查自动调参证据，再显式设置 `--scene-threshold` 或 `--min-shot-seconds`。 |
+| CapCut 草稿写入失败 | 查看 `capcut-draft-summary.json`；常见原因是缺少 `cutcli`、草稿目录不可写或草稿名已存在。 |
 
 ## English Quick Start
 
@@ -145,9 +159,9 @@ CI 在 Python 3.10 和 3.12 上运行单元测试、真实 FFmpeg 合成视频�
 
 ## 项目状态
 
-当前版本：`0.1.0-beta.3`（公开 Beta）。
+当前版本：`0.1.0-beta.4`（公开 Beta）。
 
-自动化本地链路已有合成视频证据。真实 TikTok 下载会受平台和 yt-dlp 变化影响；provider-backed hybrid 质量基准、真实 CapCut 导入、独立人工评审与生产遥测仍标记为 `missing evidence`，不是 `v1.0.0` 完成项。
+自动化本地链路已有合成视频证据；本机 `cutcli` 写入 CapCut 草稿已有 smoke evidence。真实 TikTok 下载会受平台和 yt-dlp 变化影响；provider-backed hybrid 质量基准、独立人工评审与生产遥测仍标记为 `missing evidence`，不是 `v1.0.0` 完成项。
 
 ## 责任边界与商标
 

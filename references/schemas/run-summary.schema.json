@@ -16,7 +16,8 @@
         "label",
         "plan",
         "render",
-        "finalize"
+        "finalize",
+        "capcut_draft"
       ]
     },
     "recoverable": {"type": "boolean"},
@@ -80,6 +81,28 @@
     "resources": {"type": "object"},
     "model": {"type": "object"},
     "render": {"type": "object"},
+    "capcut": {
+      "type": "object",
+      "required": ["schema_version", "status"],
+      "properties": {
+        "schema_version": {"const": 1},
+        "status": {"enum": ["skipped", "complete", "failed"]},
+        "ok": {"type": "boolean"},
+        "mode": {"const": "capcut-draft"},
+        "draft_id": {"type": "string"},
+        "draft_path": {"type": "string"},
+        "source_package": {"type": "string"},
+        "cutcli_version": {"type": "string"},
+        "canvas": {"type": "object"},
+        "expected": {"type": "object"},
+        "actual": {"type": "object"},
+        "validations": {"type": "object"},
+        "recoverable": {"type": "boolean"},
+        "next_action": {"type": "string"},
+        "error": {"type": "object"}
+      },
+      "additionalProperties": true
+    },
     "validation": {"type": "object"}
   },
   "additionalProperties": true

@@ -1,7 +1,7 @@
 {
   "$schema": "https://yao.example/schemas/manifest.schema.json",
   "name": "tiktok-video-splitter",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "owner": "Jason8888x8888",
   "updated_at": "2026-09-01",
   "review_due": "2026-12-01",
@@ -20,12 +20,12 @@
     "reports",
     "security"
   ],
-  "output_contract": "A deterministic shot package with clips or plan-only assets, matching keyframes, CSV, versioned JSON indexes, and a run summary.",
+  "output_contract": "A deterministic shot package with clips or plan-only assets, matching keyframes, CSV, versioned JSON indexes, a run summary, and an optional cutcli-backed local CapCut draft delivery stage.",
   "rollback_boundary": "Existing final output directories are never overwritten; replace-assets is limited to confirmed render-only recovery with a package-local backup.",
   "evidence_status": {
     "automated_local": "available",
     "provider_backed_hybrid_benchmark": "missing evidence",
-    "real_capcut_import": "missing evidence",
+    "real_capcut_import": "local cutcli draft smoke verified",
     "independent_human_adjudication": "missing evidence",
     "production_telemetry": "missing evidence"
   }

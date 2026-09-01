@@ -14,6 +14,7 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
@@ -55,6 +56,8 @@ DEFAULT_MODEL = "doubao-seed-2-0-lite-260428"
 DEFAULT_MEDIA_TIMEOUT_SECONDS = 1800
 DEFAULT_MAX_HYBRID_UPLOAD_MB = 200
 DEFAULT_MAX_SCENE_EVENTS = 120
+DEFAULT_CAPCUT_CANVAS_WIDTH = 1080
+DEFAULT_CAPCUT_CANVAS_HEIGHT = 1920
 DEFAULT_SCENE_THRESHOLD: str | float = "auto"
 DEFAULT_MANUAL_SCENE_THRESHOLD = 0.20
 DEFAULT_MIN_SHOT_SECONDS = 0.60
@@ -1237,6 +1240,303 @@ def build_preflight_report(args: argparse.Namespace) -> dict:
     )
 
 
+def capcut_draft_root() -> Path:
+    return (
+        Path.home()
+        / "Movies"
+        / "CapCut"
+        / "User Data"
+        / "Projects"
+        / "com.lveditor.draft"
+    )
+
+
+def default_capcut_draft_name(data: dict) -> str:
+    source = data.get("source", {})
+    title = sanitize_component(
+        str(source.get("title") or "TikTok视频"),
+        max_chars=24,
+        fallback="TikTok视频",
+    )
+    video_id = sanitize_component(
+        str(source.get("video_id") or "local"),
+        max_chars=24,
+        fallback="local",
+    )
+    segment_count = len(data.get("segments") or [])
+    return f"视频拆解-{title}-{video_id}-{segment_count}段"
+
+
+def parse_json_output(stdout: str, action: str) -> dict:
+    text = stdout.strip()
+    if not text:
+        return {}
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end < start:
+        raise AssetizeError(f"{action} did not return JSON")
+    try:
+        return json.loads(text[start : end + 1])
+    except json.JSONDecodeError as exc:
+        raise AssetizeError(f"{action} returned invalid JSON") from exc
+
+
+def cutcli_version(cutcli: str) -> str:
+    completed = run_command(
+        [cutcli, "--version"],
+        "reading cutcli version",
+        timeout=30,
+    )
+    return completed.stdout.splitlines()[0].strip()
+
+
+def build_capcut_video_infos(package_root: Path, data: dict) -> list[dict]:
+    segments = normalize_and_validate_segments(data)
+    source_video = data.get("source", {}).get("probe", {}).get("video", {})
+    width = int(source_video.get("width") or DEFAULT_CAPCUT_CANVAS_WIDTH)
+    height = int(source_video.get("height") or DEFAULT_CAPCUT_CANVAS_HEIGHT)
+    video_infos = []
+    for segment in segments:
+        duration_us = int(segment["duration_ms"]) * 1000
+        clip = resolve_package_member(package_root, segment["clip"])
+        if not clip.is_file():
+            raise FileNotFoundError(f"CapCut clip not found: {clip}")
+        video_infos.append(
+            {
+                "videoUrl": str(clip),
+                "width": width,
+                "height": height,
+                "duration": duration_us,
+                "start": 0,
+                "end": duration_us,
+                "volume": 1,
+            }
+        )
+    return video_infos
+
+
+def read_json_if_exists(path: Path) -> dict:
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def summarize_capcut_draft(
+    *,
+    draft_name: str,
+    draft_path: Path,
+    package_root: Path,
+    info_payload: dict,
+    expected_segment_count: int,
+    expected_duration_us: int,
+    version: str,
+) -> dict:
+    draft_content = read_json_if_exists(draft_path / "draft_content.json")
+    draft_meta = read_json_if_exists(draft_path / "draft_meta_info.json")
+    resources_dir = draft_path / "Resources"
+    resource_videos = list(resources_dir.glob("*.mp4")) if resources_dir.is_dir() else []
+    materials = draft_content.get("materials", {}).get("videos", [])
+    video_tracks = [
+        track for track in draft_content.get("tracks", []) if track.get("type") == "video"
+    ]
+    video_track_segment_count = sum(
+        len(track.get("segments", [])) for track in video_tracks
+    )
+    content_duration_us = int(draft_content.get("duration") or 0)
+    info_duration_us = int(info_payload.get("duration") or 0)
+    resource_backed_material_count = sum(
+        1
+        for material in materials
+        if "Resources/" in str(material.get("path") or "")
+        and str(material.get("path") or "").lower().endswith(".mp4")
+    )
+    volume_one_or_default_segment_count = 0
+    for track in video_tracks:
+        for segment in track.get("segments", []):
+            volume = segment.get("last_nonzero_volume", segment.get("volume", 1))
+            try:
+                if abs(float(volume) - 1.0) < 0.0001:
+                    volume_one_or_default_segment_count += 1
+            except (TypeError, ValueError):
+                pass
+    actual_duration_us = content_duration_us or info_duration_us
+    validations = {
+        "draft_path_exists": draft_path.is_dir(),
+        "material_count_matches": len(materials) == expected_segment_count,
+        "video_track_count_matches": len(video_tracks) == 1,
+        "timeline_segment_count_matches": video_track_segment_count
+        == expected_segment_count,
+        "total_duration_matches": abs(actual_duration_us - expected_duration_us) <= 1000,
+        "resources_copied": len(resource_videos) == expected_segment_count,
+        "material_paths_are_resource_backed": resource_backed_material_count
+        == expected_segment_count,
+        "original_audio_enabled": volume_one_or_default_segment_count
+        == expected_segment_count,
+    }
+    ok = all(validations.values())
+    return {
+        "schema_version": 1,
+        "status": "complete" if ok else "failed",
+        "ok": ok,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "mode": "capcut-draft",
+        "draft_id": draft_name,
+        "draft_path": str(draft_path),
+        "source_package": str(package_root),
+        "cutcli_version": version,
+        "canvas": {
+            "width": DEFAULT_CAPCUT_CANVAS_WIDTH,
+            "height": DEFAULT_CAPCUT_CANVAS_HEIGHT,
+        },
+        "expected": {
+            "segment_count": expected_segment_count,
+            "duration_us": expected_duration_us,
+            "audio_policy": "original",
+        },
+        "actual": {
+            "material_count": len(materials),
+            "video_track_count": len(video_tracks),
+            "video_track_segment_count": video_track_segment_count,
+            "duration_us": actual_duration_us,
+            "resource_video_count": len(resource_videos),
+            "resource_backed_material_count": resource_backed_material_count,
+            "volume_one_or_default_segment_count": volume_one_or_default_segment_count,
+            "draft_info_duration_us": info_duration_us,
+            "draft_meta_name": draft_meta.get("draft_name") or draft_meta.get("name"),
+        },
+        "validations": validations,
+    }
+
+
+def create_capcut_draft(
+    package_root: Path,
+    data: dict,
+    *,
+    draft_name: str | None,
+    timeout_seconds: int,
+) -> dict:
+    cutcli = shutil.which("cutcli")
+    if not cutcli:
+        raise AssetizeError("cutcli is required for --capcut-stage draft")
+    resolved_draft_name = draft_name or default_capcut_draft_name(data)
+    root = capcut_draft_root()
+    if not root.is_dir():
+        raise AssetizeError("CapCut draft root was not found")
+    if not os.access(root, os.W_OK):
+        raise AssetizeError("CapCut draft root is not writable")
+    draft_path = root / resolved_draft_name
+    if draft_path.exists():
+        raise FileExistsError(f"CapCut draft already exists: {resolved_draft_name}")
+
+    video_infos = build_capcut_video_infos(package_root, data)
+    expected_duration_us = sum(item["duration"] for item in video_infos)
+    version = cutcli_version(cutcli)
+    with tempfile.TemporaryDirectory(prefix="tiktok-capcut-video-infos-") as temp_dir:
+        video_infos_path = Path(temp_dir) / "video-infos.json"
+        write_json(video_infos_path, video_infos)
+        run_command(
+            [
+                cutcli,
+                "--pretty",
+                "draft",
+                "create",
+                "--width",
+                str(DEFAULT_CAPCUT_CANVAS_WIDTH),
+                "--height",
+                str(DEFAULT_CAPCUT_CANVAS_HEIGHT),
+                "--name",
+                resolved_draft_name,
+            ],
+            "creating CapCut draft",
+            timeout=timeout_seconds,
+        )
+        info_completed = run_command(
+            [
+                cutcli,
+                "--pretty",
+                "videos",
+                "add",
+                resolved_draft_name,
+                "--video-infos",
+                f"@{video_infos_path}",
+            ],
+            "adding videos to CapCut draft",
+            timeout=timeout_seconds,
+        )
+        parse_json_output(info_completed.stdout, "adding videos to CapCut draft")
+
+    info_completed = run_command(
+        [cutcli, "--pretty", "draft", "info", resolved_draft_name],
+        "reading CapCut draft info",
+        timeout=60,
+    )
+    info_payload = parse_json_output(info_completed.stdout, "reading CapCut draft info")
+    return summarize_capcut_draft(
+        draft_name=resolved_draft_name,
+        draft_path=draft_path,
+        package_root=package_root,
+        info_payload=info_payload,
+        expected_segment_count=len(video_infos),
+        expected_duration_us=expected_duration_us,
+        version=version,
+    )
+
+
+def apply_capcut_stage(
+    *,
+    package_root: Path,
+    data: dict,
+    run_summary: dict,
+    args: argparse.Namespace,
+    timeout_seconds: int,
+) -> dict:
+    requested = getattr(args, "capcut_stage", "none") == "draft"
+    if not requested:
+        return {
+            "schema_version": 1,
+            "status": "skipped",
+            "requested": False,
+            "stage": "none",
+        }
+    index_dir = package_root / "03_索引记录"
+    try:
+        summary = create_capcut_draft(
+            package_root,
+            data,
+            draft_name=args.capcut_draft_name,
+            timeout_seconds=timeout_seconds,
+        )
+    except Exception as exc:
+        summary = {
+            "schema_version": 1,
+            "status": "failed",
+            "ok": False,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "mode": "capcut-draft",
+            "source_package": str(package_root),
+            "recoverable": True,
+            "next_action": (
+                "Fix the local cutcli/CapCut draft environment or choose another "
+                "--capcut-draft-name, then rerun --capcut-stage draft."
+            ),
+            "error": {
+                "type": type(exc).__name__,
+                "message": redact_sensitive_text(str(exc)),
+            },
+        }
+    write_json(index_dir / "capcut-draft-summary.json", summary)
+    run_summary["stage"] = "capcut_draft"
+    run_summary["updated_at"] = datetime.now(timezone.utc).isoformat()
+    run_summary["capcut"] = summary
+    if summary.get("cutcli_version"):
+        run_summary.setdefault("tools", {})["cutcli"] = summary["cutcli_version"]
+    write_json(index_dir / "run-summary.json", run_summary)
+    return summary
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("input", nargs="?", help="TikTok HTTPS URL or local MP4")
@@ -1300,6 +1600,19 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--replace-assets", action="store_true")
     parser.add_argument("--validate-only", action="store_true")
+    parser.add_argument(
+        "--capcut-stage",
+        choices=("none", "draft"),
+        default="none",
+        help=(
+            "Optional delivery stage. draft creates a local CapCut draft with "
+            "cutcli after the shot package is complete."
+        ),
+    )
+    parser.add_argument(
+        "--capcut-draft-name",
+        help="Optional CapCut draft name used with --capcut-stage draft.",
+    )
     authentication = parser.add_mutually_exclusive_group()
     authentication.add_argument("--cookies-from-browser")
     authentication.add_argument("--cookies-file", type=Path)
@@ -1327,6 +1640,8 @@ def validate_arguments(args: argparse.Namespace) -> None:
             raise ValueError(
                 "--render-only cannot be combined with input, --output-parent, --plan-only, --local-only, or --reuse-download-summary"
             )
+        if args.capcut_draft_name and args.capcut_stage != "draft":
+            raise ValueError("--capcut-draft-name requires --capcut-stage draft")
         return
     if args.local_only and args.mode == "hybrid":
         raise ValueError("--local-only cannot be combined with --mode hybrid")
@@ -1340,6 +1655,10 @@ def validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("--min-shot-seconds must be between 0.1 and 10")
     if args.replace_assets:
         raise ValueError("--replace-assets is only valid with --render-only")
+    if args.plan_only and args.capcut_stage == "draft":
+        raise ValueError("--capcut-stage draft requires rendered clips; remove --plan-only")
+    if args.capcut_draft_name and args.capcut_stage != "draft":
+        raise ValueError("--capcut-draft-name requires --capcut-stage draft")
     if args.reuse_download_summary and is_tiktok_input(args.input):
         raise ValueError(
             "--reuse-download-summary requires a local MP4 input, not a TikTok URL"
@@ -1393,12 +1712,21 @@ def run_render_only(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
         }
     )
     write_json(run_summary_path, run_summary)
+    capcut_summary = apply_capcut_stage(
+        package_root=package_root,
+        data=data,
+        run_summary=run_summary,
+        args=args,
+        timeout_seconds=args.media_timeout_seconds,
+    )
     result = {
         "status": "complete",
         "mode": "render-only",
         "output_dir": str(package_root),
         "render": render_summary,
     }
+    if capcut_summary["status"] != "skipped":
+        result["capcut"] = capcut_summary
     return result
 
 
@@ -1657,6 +1985,13 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
         }
         write_json(index_dir / "run-summary.json", run_summary)
         os.replace(partial_root, final_root)
+        capcut_summary = apply_capcut_stage(
+            package_root=final_root,
+            data=segments_data,
+            run_summary=run_summary,
+            args=args,
+            timeout_seconds=args.media_timeout_seconds,
+        )
 
         result = {
             "status": run_summary["status"],
@@ -1671,6 +2006,8 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
             "usage": model_summary.get("usage", {}),
             "quality": quality,
         }
+        if capcut_summary["status"] != "skipped":
+            result["capcut"] = capcut_summary
         return result
     except Exception as exc:
         if (

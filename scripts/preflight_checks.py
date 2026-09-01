@@ -17,6 +17,17 @@ SCRIPT_INTERFACE = "internal-module"
 SCRIPT_INTERFACE_REASON = "Imported by the main CLI to perform read-only capability checks."
 
 
+def capcut_draft_root() -> Path:
+    return (
+        Path.home()
+        / "Movies"
+        / "CapCut"
+        / "User Data"
+        / "Projects"
+        / "com.lveditor.draft"
+    )
+
+
 def build_preflight_report(
     args,
     *,
@@ -35,12 +46,14 @@ def build_preflight_report(
     render_only = bool(args.render_only)
     input_is_url = bool(args.input and is_tiktok_input(args.input))
     mode = selected_mode(args)
+    capcut_requested = getattr(args, "capcut_stage", "none") == "draft"
     resolved_tools: dict[str, str | None] = {}
     for tool_name, required in (
         ("ffmpeg", True),
         ("ffprobe", True),
         ("yt-dlp", input_is_url),
         ("curl", mode == "hybrid" and not render_only),
+        ("cutcli", capcut_requested),
     ):
         resolved = shutil.which(tool_name)
         resolved_tools[tool_name] = resolved
@@ -143,6 +156,25 @@ def build_preflight_report(
             cookie_ok,
             "cookie file available" if cookie_ok else "cookie file missing",
         )
+
+    if capcut_requested:
+        draft_root = capcut_draft_root()
+        root_ok = draft_root.is_dir() and os.access(draft_root, os.W_OK)
+        add_check(
+            "capcut_draft_root",
+            True,
+            root_ok,
+            str(draft_root) if root_ok else "CapCut draft root missing or not writable",
+        )
+        draft_name = getattr(args, "capcut_draft_name", None)
+        if draft_name:
+            draft_ok = not (draft_root / draft_name).exists()
+            add_check(
+                "capcut_draft_name",
+                True,
+                draft_ok,
+                "available" if draft_ok else "draft name already exists",
+            )
 
     valid = all(check["ok"] for check in checks if check["required"])
     return {
