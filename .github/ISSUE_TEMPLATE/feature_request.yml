@@ -1,0 +1,37 @@
+name: Feature request
+description: Propose a focused improvement within the single-video splitting scope.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem should this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe inputs, outputs, and expected safety boundaries.
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Sensitive impact
+      options:
+        - No upload, credential, Cookie, cost, or platform-access impact
+        - Changes upload or provider-cost behavior
+        - Changes credential or Cookie handling
+        - Changes download or platform-access behavior
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request does not ask to bypass login, region, CAPTCHA, access control, or platform restrictions.
+          required: true

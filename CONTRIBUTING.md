@@ -18,7 +18,7 @@ python3 scripts/verify_release.py
 
 - 说明问题、方案和用户可见变化。
 - 标明是否涉及上传、费用、凭据、Cookie、下载策略或输出 schema。
-- schema 变化必须更新 `schema_version`、JSON Schema 和 CHANGELOG。
+- 不兼容的 schema 变化必须更新 `schema_version`；兼容的新增字段也必须同步 JSON Schema、测试和 CHANGELOG。
 - 不得加入绕过平台登录、地区、验证码、访问控制或下载限制的逻辑。
 
 ## 测试素材

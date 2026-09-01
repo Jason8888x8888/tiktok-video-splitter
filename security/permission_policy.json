@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "reviewed_at": "2026-08-31",
+  "reviewed_at": "2026-09-01",
   "capabilities": {
     "network": {
       "decision": "approved",
@@ -13,6 +13,7 @@
         "SKILL.md"
       ],
       "target_enforcement": {
+        "agent-skills": "The installer and operator must review network metadata before running URL or hybrid modes.",
         "openai": "Agent must request explicit upload and cost authorization before hybrid mode.",
         "claude": "Agent must request explicit upload and cost authorization before hybrid mode.",
         "generic": "Local mode is the default; network modes require explicit user intent.",
@@ -30,6 +31,7 @@
         "tests/test_assetize_tiktok.py"
       ],
       "target_enforcement": {
+        "agent-skills": "Write only to the explicit output directory and require confirmation for replacement.",
         "openai": "Write only to the explicit output directory and require confirmation for replacement.",
         "claude": "Write only to the explicit output directory and require confirmation for replacement.",
         "generic": "Output paths are explicit and existing targets are refused by default.",
@@ -47,6 +49,7 @@
         "tests/test_assetize_tiktok.py"
       ],
       "target_enforcement": {
+        "agent-skills": "Use only bundled scripts and their declared external tools.",
         "openai": "Use only bundled scripts and their declared external tools.",
         "claude": "Use only bundled scripts and their declared external tools.",
         "generic": "Subprocess arguments, environment, and timeouts are bounded in code.",

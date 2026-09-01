@@ -2,6 +2,28 @@
 
 All notable changes follow semantic versioning.
 
+## [0.1.0-beta.3] - 2026-09-01
+
+### Added
+
+- Public installation, English quick start, responsible-use notes, and an output-directory screenshot.
+- A real FFmpeg end-to-end regression, auto-tuning JSON Schema coverage, trigger cases, output evaluations, and governed release metadata.
+- GitHub issue and pull request templates.
+
+### Changed
+
+- Automatic tuning now uses transition density instead of candidate-shot density, so a baseline shot is not miscounted as a transition.
+- CI disables Python bytecode generation, verifies FFmpeg, and pins third-party Actions to immutable commits.
+- Compatibility metadata now describes a remote Agent Skills package executed through Bash.
+
+### Fixed
+
+- A short video with no detected scene events is now classified as `稳定产品展示` instead of `口播/教程演示`.
+
+### Security
+
+- Public release documentation now states authorization, platform-policy, privacy, trademark, and non-affiliation boundaries.
+
 ## [0.1.0-beta.2] - 2026-09-01
 
 ### Added

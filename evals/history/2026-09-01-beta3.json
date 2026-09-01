@@ -1,0 +1,28 @@
+{
+  "version": "0.1.0-beta.3",
+  "date": "2026-09-01",
+  "trigger_cases": {
+    "should_trigger": 3,
+    "should_not_trigger": 4,
+    "near_neighbor": 3
+  },
+  "output_eval": {
+    "mode": "recorded_fixture",
+    "case_count": 5,
+    "baseline_pass_rate": 0.0,
+    "with_skill_pass_rate": 100.0,
+    "regression_count": 0,
+    "evidence": "reports/output_quality_scorecard.json"
+  },
+  "runtime_tests": {
+    "status": "passed",
+    "count": 28,
+    "includes_ffmpeg_end_to_end": true
+  },
+  "limitations": [
+    "provider-backed hybrid benchmark: missing evidence",
+    "real CapCut import: missing evidence",
+    "independent human adjudication: missing evidence",
+    "production telemetry: missing evidence"
+  ]
+}

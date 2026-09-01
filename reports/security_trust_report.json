@@ -1,0 +1,285 @@
+{
+  "ok": true,
+  "skill_dir": ".",
+  "summary": {
+    "scanned_files": 24,
+    "script_count": 6,
+    "internal_module_count": 3,
+    "secret_findings": 0,
+    "dependency_files": [
+      "requirements.txt"
+    ],
+    "network_script_count": 0,
+    "network_policy_covered_count": 0,
+    "network_policy_missing_count": 0,
+    "file_write_script_count": 3,
+    "permission_required_count": 2,
+    "permission_approved_count": 2,
+    "permission_missing_count": 0,
+    "permission_invalid_count": 0,
+    "permission_expired_count": 0,
+    "help_smoke_checked_count": 3,
+    "help_smoke_failed_count": 0,
+    "interactive_script_count": 0,
+    "package_hash_scope": "source-contract-without-generated-reports",
+    "package_hash_file_count": 24,
+    "package_sha256": "eaa73f5ea01e79b99daeaf5bf106b39cdde2354ba8660f0fed02b6fb468cf26d"
+  },
+  "failures": [],
+  "warnings": [],
+  "secrets": [],
+  "scripts": [
+    {
+      "path": "scripts/assetize_tiktok.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": true,
+      "network_urls": [
+        "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+      ],
+      "network_hosts": [
+        "ark.cn-beijing.volces.com"
+      ]
+    },
+    {
+      "path": "scripts/download_tiktok.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": true,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/package_contracts.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Imported by the CLI for deterministic output contracts and pipeline state.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": true,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/preflight_checks.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Imported by the main CLI to perform read-only capability checks.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/runtime_safety.py",
+      "interface": "internal-module",
+      "interface_declared": true,
+      "interface_reason": "Imported by CLI scripts for credential, path, URL, and subprocess safety.",
+      "has_argparse": false,
+      "has_main_guard": false,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": false,
+      "network_urls": [],
+      "network_hosts": []
+    },
+    {
+      "path": "scripts/verify_release.py",
+      "interface": "cli",
+      "interface_declared": false,
+      "interface_reason": "Default CLI classification; add SCRIPT_INTERFACE for internal modules.",
+      "has_argparse": true,
+      "has_main_guard": true,
+      "uses_input": false,
+      "uses_network": false,
+      "uses_file_write": false,
+      "uses_subprocess": true,
+      "network_urls": [
+        "https://json-schema.org/draft/2020-12/schema"
+      ],
+      "network_hosts": [
+        "json-schema.org"
+      ]
+    }
+  ],
+  "dependencies": {
+    "present": [
+      "requirements.txt"
+    ],
+    "pinned": [],
+    "unpinned": []
+  },
+  "network_policy": {
+    "present": true,
+    "path": "security/network_policy.json",
+    "schema_version": "1.0",
+    "network_script_count": 0,
+    "covered_scripts": [],
+    "missing_scripts": [],
+    "mismatches": [],
+    "default_policy": {
+      "require_https": true,
+      "custom_hosts": "deny-by-default",
+      "review_rule": "Only one validated TikTok URL and the documented Ark endpoint may be contacted."
+    }
+  },
+  "help_smoke": {
+    "enabled": true,
+    "timeout_seconds": 5.0,
+    "candidate_count": 3,
+    "checked_count": 3,
+    "passed_count": 3,
+    "failed_count": 0,
+    "skipped_count": 3,
+    "failed_scripts": [],
+    "results": [
+      {
+        "path": "scripts/assetize_tiktok.py",
+        "command": "python3 scripts/assetize_tiktok.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: assetize_tiktok.py [-h] [--output-parent OUTPUT_PARENT]\n                          [--api-key-file API_KEY_FILE]\n                          [--prompt-file PROMPT_FILE] [--model MODEL]\n                          [--fps FPS] [--max-tokens",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/download_tiktok.py",
+        "command": "python3 scripts/download_tiktok.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: download_tiktok.py [-h] --output-dir OUTPUT_DIR\n                          [--cookies-from-browser COOKIES_FROM_BROWSER |\n                          --cookies-file COOKIES_FILE]\n                          [--timeout-seconds TIMEOUT_SECO",
+        "stderr_excerpt": ""
+      },
+      {
+        "path": "scripts/verify_release.py",
+        "command": "python3 scripts/verify_release.py --help",
+        "returncode": 0,
+        "timed_out": false,
+        "passed": true,
+        "has_help_text": true,
+        "stdout_excerpt": "usage: verify_release.py [-h]\n\nVerify the repository's public release package.\n\noptions:\n  -h, --help  show this help message and exit",
+        "stderr_excerpt": ""
+      }
+    ],
+    "skipped": [
+      {
+        "path": "scripts/package_contracts.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/preflight_checks.py",
+        "reason": "internal module"
+      },
+      {
+        "path": "scripts/runtime_safety.py",
+        "reason": "internal module"
+      }
+    ]
+  },
+  "permission_governance": {
+    "present": true,
+    "path": "security/permission_policy.json",
+    "schema_version": "1.0",
+    "reviewed_at": "2026-09-01",
+    "required_capabilities": [
+      "file_write",
+      "subprocess"
+    ],
+    "approved_capabilities": [
+      "file_write",
+      "subprocess"
+    ],
+    "missing_capabilities": [],
+    "invalid_capabilities": [],
+    "expired_capabilities": [],
+    "approval_count": 2,
+    "required_count": 2,
+    "missing_count": 0,
+    "invalid_count": 0,
+    "expired_count": 0,
+    "approvals": [
+      {
+        "capability": "file_write",
+        "status": "approved",
+        "scripts": [
+          "scripts/assetize_tiktok.py",
+          "scripts/download_tiktok.py",
+          "scripts/package_contracts.py"
+        ],
+        "reviewer": "Repository maintainer",
+        "scope": "The user-selected output parent, bounded temporary work directories, atomic index files, backups during confirmed render replacement, and no other persistent locations.",
+        "reason": "File writes are necessary to create the requested shot package while atomic rename and overwrite refusal protect existing user assets.",
+        "expires_at": "2027-08-31",
+        "evidence": [
+          "SKILL.md",
+          "tests/test_assetize_tiktok.py"
+        ],
+        "target_enforcement": {
+          "agent-skills": "Write only to the explicit output directory and require confirmation for replacement.",
+          "openai": "Write only to the explicit output directory and require confirmation for replacement.",
+          "claude": "Write only to the explicit output directory and require confirmation for replacement.",
+          "generic": "Output paths are explicit and existing targets are refused by default.",
+          "vscode": "Workspace trust and an explicit output path are required."
+        },
+        "validation": []
+      },
+      {
+        "capability": "subprocess",
+        "status": "approved",
+        "scripts": [
+          "scripts/assetize_tiktok.py",
+          "scripts/download_tiktok.py",
+          "scripts/verify_release.py"
+        ],
+        "reviewer": "Repository maintainer",
+        "scope": "FFmpeg, FFprobe, yt-dlp, and curl invoked as argument arrays with timeouts and a sanitized child environment.",
+        "reason": "Deterministic media processing and bounded downloads require established external tools, while shell interpolation and credential inheritance are prohibited.",
+        "expires_at": "2027-08-31",
+        "evidence": [
+          "scripts/runtime_safety.py",
+          "tests/test_assetize_tiktok.py"
+        ],
+        "target_enforcement": {
+          "agent-skills": "Use only bundled scripts and their declared external tools.",
+          "openai": "Use only bundled scripts and their declared external tools.",
+          "claude": "Use only bundled scripts and their declared external tools.",
+          "generic": "Subprocess arguments, environment, and timeouts are bounded in code.",
+          "vscode": "Workspace trust is required before running external tools."
+        },
+        "validation": []
+      }
+    ]
+  },
+  "trust_metadata": {
+    "source_tier": "remote",
+    "remote_inline_execution": "forbid",
+    "remote_metadata_policy": "allow-metadata-only"
+  },
+  "artifacts": {
+    "json": "reports/security_trust_report.json",
+    "markdown": "reports/security_trust_report.md"
+  }
+}

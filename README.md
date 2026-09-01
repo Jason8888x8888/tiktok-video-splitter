@@ -1,23 +1,44 @@
 # TikTok Video Splitter
 
-> 长视频素材堆在一起，真正麻烦的不是下载，而是逐镜切开、编号、抽帧、核对时间线，再整理成剪辑软件能批量使用的素材包。
-
-TikTok Video Splitter 把用户明确提供的一条 TikTok 视频或本地 MP4 拆成连续物理分镜，生成同名关键帧、总览图、CSV 和可追溯 JSON。默认全程本地、零 Token；只有用户明确授权上传和费用时，才使用模型逐镜补充语义名称。
-
+[![CI](https://github.com/Jason8888x8888/tiktok-video-splitter/actions/workflows/ci.yml/badge.svg)](https://github.com/Jason8888x8888/tiktok-video-splitter/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Jason8888x8888/tiktok-video-splitter?include_prereleases)](https://github.com/Jason8888x8888/tiktok-video-splitter/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 
-## 你会得到什么
+把用户明确提供的一条 TikTok 视频或本地 MP4 拆成连续物理分镜，并生成同名关键帧、总览图、CSV 与可追溯 JSON。默认全程本地、零 Token；只有用户明确授权上传和费用时，才使用模型逐镜补充语义名称。
+
+## 安装
+
+从 GitHub 一行安装：
+
+```bash
+npx skills add Jason8888x8888/tiktok-video-splitter
+```
+
+本地开发安装：
+
+```bash
+git clone https://github.com/Jason8888x8888/tiktok-video-splitter.git
+cd tiktok-video-splitter
+npx skills add .
+```
+
+确认 Skill 可被发现：
+
+```bash
+npx skills add . --list
+```
+
+## 产物示例
+
+![TikTok Video Splitter 生成的分镜视频、关键帧、索引记录和总览图目录](docs/assets/output-directory-example.png)
 
 ```text
-视频拆解-示例视频-1234567890-2026-08-31/
+视频拆解-示例视频-1234567890-2026-09-01/
 ├── 源视频.mp4
 ├── 分镜总览.jpg
 ├── 01_分镜视频/
-│   ├── 001_分镜_00m00s-00m04s.mp4
-│   └── 002_分镜_00m04s-00m08s.mp4
 ├── 02_关键帧/
-│   ├── 001_分镜_00m00s-00m04s.jpg
-│   ├── 002_分镜_00m04s-00m08s.jpg
 │   └── 分镜总览.jpg
 └── 03_索引记录/
     ├── candidates.json
@@ -27,43 +48,20 @@ TikTok Video Splitter 把用户明确提供的一条 TikTok 视频或本地 MP4 
     └── run-summary.json
 ```
 
-运行摘要会记录场景事件是否被截断、镜头密度、人工复核建议、工具版本、输入哈希、Token 使用和失败阶段。它不会把“结构校验通过”伪装成“语义已经人工核验”。
-
-## 安装
-
-克隆仓库后，在仓库根目录执行：
-
-```bash
-npx skills add .
-```
-
-确认可发现：
-
-```bash
-npx skills add . --list
-```
-
-也可以把当前 `TikTok-video-splitter` 文件夹复制到 Agent 支持的 Skills 目录。
+运行摘要会记录场景事件、自动调参证据、人工复核建议、工具版本、输入哈希、Token 使用和失败阶段。结构校验通过不代表语义已经人工核验。
 
 ## 前置条件
 
-- [ ] Python 3.10+：运行 `python3 --version` 验证。
-- [ ] FFmpeg 与 FFprobe：macOS 可运行 `brew install ffmpeg`，Ubuntu 可运行 `sudo apt-get install ffmpeg`。
-- [ ] yt-dlp：仅处理 TikTok URL 时需要，推荐使用其[官方安装方式](https://github.com/yt-dlp/yt-dlp/wiki/Installation)。
-- [ ] curl：仅 `hybrid` 语义模式需要。
-- [ ] Ark API Key：仅 `hybrid` 模式需要；本地模式不读取、不上传、不计费。
+- Python 3.10+
+- FFmpeg 与 FFprobe
+- yt-dlp：仅处理 TikTok URL 时需要
+- curl 与 Ark API Key：仅 `hybrid` 语义模式需要
 
-## 如何触发
+macOS 可通过 `brew install ffmpeg` 安装 FFmpeg；Ubuntu 可运行 `sudo apt-get install ffmpeg`。yt-dlp 请参考其[官方安装说明](https://github.com/yt-dlp/yt-dlp/wiki/Installation)。
 
-你可以直接对 Agent 说：
+## 快速开始
 
-- “把这个 TikTok 视频按物理分镜拆开，默认本地零 Token。”
-- “把这条本地 MP4 整理成混剪素材包，生成关键帧和 CSV。”
-- “我授权上传并承担费用，请在物理分镜不变的前提下补充语义命名。”
-
-下载-only、账号监控、批量抓取、固定时长机械切割、字幕提取、叙事分析和最终成片剪辑不会触发本 Skill。
-
-## 先做只读预检
+先做只读预检；它不会下载、上传或创建输出目录：
 
 ```bash
 python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
@@ -71,11 +69,7 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --validate-only
 ```
 
-预检不会联网或创建输出目录。它会返回输入、输出、工具和凭据的机器可读能力矩阵；`status=invalid` 时退出码为 2。
-
-## 两种模式
-
-### 本地基础拆解
+本地零 Token 拆解：
 
 ```bash
 python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
@@ -83,24 +77,9 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --mode local
 ```
 
-- 完全本地处理。
-- Token 固定为 0。
-- 默认 `--scene-threshold auto` 会先本地预扫描视频，不上传、不调用模型；它根据场景变化密度、运动强度、候选切点数量和视频时长判断素材节奏，并自动选择 `scene-threshold` 与 `min-shot-seconds`。
-- 文件名基于客观时间范围，如 `001_分镜_00m00s-00m04s.mp4`。
-- 语义置信度记录为“不适用”，不会伪造为 100%。
+也可把输入替换为一条用户明确提供的 TikTok HTTPS URL。默认 `--scene-threshold auto` 先做本地预扫描，再根据真实转场密度选择阈值与最短分镜；它不会上传视频。该策略是启发式判断，异常素材应检查总览图并改用 `--scene-threshold 0.30` 等手动数值。
 
-也可以手动控制拆解灵敏度：
-
-```bash
-python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
-  --output-parent "/absolute/path/output" \
-  --mode local \
-  --scene-threshold 0.30
-```
-
-常用分档：`0.22-0.30` 适合稳定产品展示或教程，`0.30` 适合口播/教程演示，`0.35-0.45` 适合快节奏演示或混剪。数值越低越敏感，分得越细；数值越高越保守，分得越粗。
-
-### AI 语义拆解
+## AI 语义模式
 
 ```bash
 python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
@@ -109,55 +88,77 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --api-key-file "/absolute/path/ark-key.txt"
 ```
 
-- 完整视频会上传到火山方舟并产生费用。
-- 模型只给物理分镜逐一命名，不能更改边界。
-- 默认上传限制为 200 MiB；预计模型输出超限时提前停止。
-- API 未返回 Token usage 时记录为未知，不会错误记成 0。
+`hybrid` 会上传完整视频并产生费用，必须先取得用户对本次上传和费用的明确授权。模型只能逐镜命名，不能合并、拆分、重排或修改物理边界。默认上传上限为 200 MiB；provider 未返回 Token usage 时记录为 `unknown`。
+
+## 触发边界
+
+适用请求：物理分镜、视频切片、混剪素材整理、关键帧与索引生成。
+
+不适用：只下载、账号监控、批量抓取、固定时长机械切割、字幕/逐字稿、叙事分析、CapCut 草稿写入和最终成片剪辑。
 
 ## 安全与隐私
 
-- yt-dlp 强制 `--ignore-config`，不会偷偷继承用户全局下载参数。
-- FFmpeg、FFprobe、yt-dlp 和 curl 使用最小子进程环境，不继承 Ark API Key。
-- 来源 URL 会移除查询参数、片段和嵌入式凭据。
-- 外部工具错误会脱敏 API Key、URL 查询参数和用户主目录。
-- `render-only` 拒绝绝对来源路径与目录穿越。
-- Cookie 必须由用户明确授权，Skill 不读取或转述 Cookie 内容。
+- yt-dlp 强制 `--ignore-config`，不继承用户全局下载参数。
+- 外部子进程使用最小环境变量，不继承 Ark API Key。
+- 来源 URL 会移除查询参数、片段和嵌入式凭据；错误信息会脱敏本地路径和密钥。
+- Cookie 只在用户明确授权后使用，Skill 不读取、记录或转述 Cookie 内容。
+- 最终输出与 `.partial` 默认拒绝覆盖；恢复渲染也必须显式使用 `--replace-assets`。
+- 下载流程不会绕过登录、地区、验证码、访问控制或平台限制。
+
+安全问题请按 [SECURITY.md](SECURITY.md) 私密报告，不要在公开 Issue 中提交凭据、用户数据或真实视频路径。
 
 ## 输出兼容性
 
-视频会重编码为 MP4/H.264/yuv420p；存在音频时使用 AAC。该项目只承诺“剪映/CapCut 兼容编码配置”，不宣称已经写入真实 CapCut 草稿或通过真实编辑器导入验证。
+分镜视频使用 MP4/H.264/yuv420p；存在音频时使用 AAC。这表示“剪映/CapCut 兼容编码配置”，不代表已写入 CapCut 草稿或通过真实编辑器导入认证。
 
 ## 故障排查
 
 | 问题 | 处理方法 |
 |---|---|
-| 预检返回 `status=invalid` | 查看 `checks` 中 `required=true` 且 `ok=false` 的项目，补齐输入、工具或凭据。 |
-| TikTok 下载失败 | 更新 yt-dlp；确认链接可访问。Skill 不会绕过登录、地区、验证码或平台限制。 |
-| 出现 `.partial` 目录 | 查看其中 `03_索引记录/run-summary.json` 的 `stage` 和 `next_action`。已有合法 `segments.json` 时可重新渲染。 |
-| `events_truncated=true` | 说明候选事件超过上限；检查总览图并人工复核，必要时明确调整 `--max-scene-events`。 |
-| 混合模式被大小限制阻止 | 先确认隐私、费用和服务端限制，再明确调整 `--max-hybrid-upload-mb`；不要静默绕过。 |
-| 分镜看起来过密或过疏 | 默认使用 `--scene-threshold auto`；如需人工控制，可针对素材类型调整为 `0.30`、`0.35` 等，并保留调整记录。 |
+| 预检返回 `status=invalid` | 查看 `checks` 中 `required=true` 且 `ok=false` 的项目。 |
+| TikTok 下载失败 | 更新 yt-dlp 并确认链接可访问；项目不会绕过平台限制。 |
+| 出现 `.partial` | 读取 `03_索引记录/run-summary.json` 的 `stage`、`recoverable` 和 `next_action`。 |
+| `events_truncated=true` | 检查总览图并人工复核，必要时显式调整 `--max-scene-events`。 |
+| 分镜过密或过疏 | 检查自动调参证据，再显式设置 `--scene-threshold` 或 `--min-shot-seconds`。 |
+
+## English Quick Start
+
+TikTok Video Splitter turns one user-provided TikTok video or local MP4 into contiguous physical shots, matching keyframes, an overview image, CSV, and versioned JSON indexes. Local mode is offline and uses zero model tokens.
+
+```bash
+npx skills add Jason8888x8888/tiktok-video-splitter
+python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
+  --output-parent "/absolute/path/output" \
+  --mode local
+```
+
+Use `--validate-only` first. Hybrid mode uploads the complete video and may incur provider charges, so run it only after explicit user authorization. See [SKILL.md](SKILL.md) for the full capability and safety contract.
 
 ## 开发与验证
 
 ```bash
-python3 -m unittest discover \
-  -s "tests" -v
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 python3 scripts/verify_release.py
 ```
 
-代码只依赖 Python 标准库；运行链路依赖的外部工具在 `requirements.txt` 中说明。
+CI 在 Python 3.10 和 3.12 上运行单元测试、真实 FFmpeg 合成视频端到端回归和发布包验证。代码只依赖 Python 标准库；媒体运行时依赖记录在 [requirements.txt](requirements.txt)。
 
 ## 项目状态
 
-当前版本：`0.1.0-beta.2`。
+当前版本：`0.1.0-beta.3`（公开 Beta）。
 
-Beta 已覆盖本地合成视频端到端链路和安全回归测试。真实 TikTok 下载会受平台与 yt-dlp 变化影响；真实剪映/CapCut 导入和混合模式人工语义质量基准仍是升到 `v1.0.0` 前的门槛。
+自动化本地链路已有合成视频证据。真实 TikTok 下载会受平台和 yt-dlp 变化影响；provider-backed hybrid 质量基准、真实 CapCut 导入、独立人工评审与生产遥测仍标记为 `missing evidence`，不是 `v1.0.0` 完成项。
+
+## 责任边界与商标
+
+只处理你拥有、获授权或依法可处理的内容。使用者负责遵守适用法律、平台条款、隐私要求与第三方权利。本项目不提供访问控制绕过能力，也不鼓励未经授权的下载或再发布。
+
+本项目与 TikTok、ByteDance、CapCut 或 Volcengine 无隶属、赞助或背书关系；相关名称和商标归其各自权利人所有。
 
 ## 致谢
 
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)：TikTok 链接下载与元数据解析。
-- [FFmpeg](https://ffmpeg.org/)：视频检测、转码、抽帧与总览生成。
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp)：链接下载与元数据解析。
+- [FFmpeg](https://ffmpeg.org/)：场景检测、转码、抽帧与总览生成。
 - [Volcengine Ark](https://www.volcengine.com/docs/82379)：可选语义标注服务。
 - [Agent Skills](https://agentskills.io/)：Skill 包格式。
 

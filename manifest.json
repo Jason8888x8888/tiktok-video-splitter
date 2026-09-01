@@ -1,0 +1,32 @@
+{
+  "$schema": "https://yao.example/schemas/manifest.schema.json",
+  "name": "tiktok-video-splitter",
+  "version": "0.1.0-beta.3",
+  "owner": "Jason8888x8888",
+  "updated_at": "2026-09-01",
+  "review_due": "2026-12-01",
+  "status": "experimental",
+  "maturity_tier": "governed",
+  "lifecycle_stage": "governed",
+  "context_budget_tier": "governed",
+  "review_cadence": "per-release",
+  "skill_archetype": "local-media-workflow",
+  "skill_ir_source": "reports/skill-ir.json",
+  "target_platforms": ["agent-skills", "openai", "generic"],
+  "factory_components": [
+    "references",
+    "scripts",
+    "evals",
+    "reports",
+    "security"
+  ],
+  "output_contract": "A deterministic shot package with clips or plan-only assets, matching keyframes, CSV, versioned JSON indexes, and a run summary.",
+  "rollback_boundary": "Existing final output directories are never overwritten; replace-assets is limited to confirmed render-only recovery with a package-local backup.",
+  "evidence_status": {
+    "automated_local": "available",
+    "provider_backed_hybrid_benchmark": "missing evidence",
+    "real_capcut_import": "missing evidence",
+    "independent_human_adjudication": "missing evidence",
+    "production_telemetry": "missing evidence"
+  }
+}

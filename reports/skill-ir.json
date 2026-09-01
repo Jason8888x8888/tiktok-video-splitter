@@ -1,0 +1,87 @@
+{
+  "schema_version": "2.0.0",
+  "name": "tiktok-video-splitter",
+  "title": "TikTok 视频拆分",
+  "job_to_be_done": "Split one user-provided TikTok video or local MP4 into ordered physical shots, matching keyframes, an overview image, and traceable indexes for remix asset preparation. Use when the user explicitly asks for TikTok 视频拆分、物理分镜、视频切片、混剪素材整理或剪映/CapCut 兼容素材。Local mode is offline and zero-token; hybrid mode adds one-to-one semantic labels only after explicit upload and cost authorization. Do not use for download-only requests, account monitoring, batch scraping, fixed-duration chopping, transcription, subtitles, narrative analysis, or final montage editing.",
+  "trigger_surface": {
+    "description": "Split one user-provided TikTok video or local MP4 into ordered physical shots, matching keyframes, an overview image, and traceable indexes for remix asset preparation. Use when the user explicitly asks for TikTok 视频拆分、物理分镜、视频切片、混剪素材整理或剪映/CapCut 兼容素材。Local mode is offline and zero-token; hybrid mode adds one-to-one semantic labels only after explicit upload and cost authorization. Do not use for download-only requests, account monitoring, batch scraping, fixed-duration chopping, transcription, subtitles, narrative analysis, or final montage editing.",
+    "should_trigger": [
+      "把这条本地 MP4 按物理分镜拆开，生成关键帧、总览图和 CSV。",
+      "把我提供的这一条 TikTok 视频整理成剪映可用的分镜素材包。",
+      "我明确授权上传和费用，请保留物理边界并给每个分镜补充语义名称。"
+    ],
+    "should_not_trigger": [
+      "只帮我下载这条 TikTok，不要拆分。",
+      "监控这个 TikTok 账号以后发布的所有视频。",
+      "给这个视频提取字幕并写成逐字稿。",
+      "把这些片段剪成一条完整广告成片。"
+    ],
+    "edge_cases": [
+      "分析这条视频的叙事结构，但不要切片。",
+      "每五秒机械切一段，不需要场景检测。",
+      "批量抓取这个账号的所有视频再分类。"
+    ]
+  },
+  "workflow": {
+    "steps": [
+      "Understand the request.",
+      "Execute the main task.",
+      "Validate the result."
+    ],
+    "decision_points": [],
+    "failure_modes": []
+  },
+  "resources": {
+    "references": [
+      "references/auto-tuning.md",
+      "references/quality-gates.md",
+      "references/schemas/candidates.schema.json",
+      "references/schemas/download-summary.schema.json",
+      "references/schemas/run-summary.schema.json",
+      "references/schemas/segments.schema.json",
+      "references/shot-label-prompt.md"
+    ],
+    "scripts": [
+      "scripts/assetize_tiktok.py",
+      "scripts/download_tiktok.py",
+      "scripts/package_contracts.py",
+      "scripts/preflight_checks.py",
+      "scripts/runtime_safety.py",
+      "scripts/verify_release.py"
+    ],
+    "assets": [],
+    "reports": []
+  },
+  "eval_plan": {
+    "trigger": [
+      "evals/output/cases.jsonl",
+      "evals/trigger_cases.json"
+    ],
+    "output": [
+      "evals/output/cases.jsonl"
+    ],
+    "adversarial": [],
+    "baseline": "without_skill"
+  },
+  "risk": {
+    "output_risk": "low",
+    "execution_risk": "medium",
+    "trust_boundary": "external"
+  },
+  "governance": {
+    "owner": "Jason8888x8888",
+    "maturity": "governed",
+    "review_cadence": "per-release",
+    "review_due": "2026-12-01"
+  },
+  "targets": [
+    "agent-skills",
+    "openai",
+    "generic"
+  ],
+  "source_files": [
+    "SKILL.md",
+    "manifest.json",
+    "agents/interface.yaml"
+  ]
+}

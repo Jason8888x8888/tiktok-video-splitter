@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Jason8888x8888/tiktok-video-splitter/security/advisories/new
+    about: Report vulnerabilities privately; never publish credentials or user data in an issue.

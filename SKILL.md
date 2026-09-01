@@ -12,7 +12,7 @@ description: |
 
 - 一次只处理一条用户明确提供的视频，不发现账号、不遍历播放列表、不批量抓取。
 - 默认使用“本地基础拆解”（CLI：`local`）：FFmpeg 本地检测、切片、抽帧，模型调用和 Token 均为 0。
-- 默认拆解灵敏度为 `--scene-threshold auto`：先本地预扫描视频，不上传、不用模型，再根据场景变化密度、运动强度、候选切点数量和视频时长自动选择阈值与最短分镜时长。
+- 默认拆解灵敏度为 `--scene-threshold auto`：先本地预扫描视频，不上传、不用模型，再根据真实转场密度、运动强度、候选切点数量和视频时长自动选择阈值与最短分镜时长。
 - “AI 语义拆解”（CLI：`hybrid`）只给既有物理分镜逐一命名，不得合并、拆分、重排或修改时间边界。
 - 下载失败时不绕过登录、地区、验证码、访问控制或平台限制。
 - 下载-only 请求应交给专门下载 Skill；CapCut 草稿同步、字幕、叙事分析和最终剪辑不属于本 Skill。
@@ -64,7 +64,7 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --scene-threshold auto
 ```
 
-自动流程：先本地预扫描视频，不上传、不用模型；统计画面变化密度、运动强度、候选切点数量和视频时长；判断素材更接近“口播/教程演示”“快节奏演示/混剪”或“稳定产品展示”；自动选择 `scene-threshold` 和 `min-shot-seconds`，并在 `run-summary.json` 记录选择原因。也可手动指定数值，例如 `--scene-threshold 0.30` 或 `--scene-threshold 0.35`。
+自动模式使用本地转场密度和运动强度选择参数，并把证据写入三个 JSON 契约；它是启发式判断，结果异常时应改用手动阈值。算法与覆盖边界见 [references/auto-tuning.md](references/auto-tuning.md)。
 
 本地模式使用客观名称，如 `001_分镜_00m00s-00m04s.mp4`；语义置信度为“不适用”，不能伪装成 `1.0`。
 
@@ -120,13 +120,4 @@ python3 scripts/assetize_tiktok.py \
 
 ## 验收
 
-1. 最终分镜从 0ms 连续覆盖到源视频结尾，无重叠、无缺口。
-2. FFprobe 确认每个分镜可读且符合兼容编码配置。
-3. 视频、关键帧、CSV、`segments.json` 编号和文件名一致。
-4. 两张总览图 SHA-256 一致。
-5. 检查事件原始数、聚类数、保留数和 `events_truncated`；发生截断时必须提示人工复核。
-6. 检查 `quality.status`、磁盘估算、模式、模型和 Token。混合模式缺少 usage 时记录 `unknown`，不得记录为 0。
-7. 失败时读取 `.partial/03_索引记录/run-summary.json` 的 `stage`、`recoverable` 和 `next_action`。已有合法 `segments.json` 时可用 `--render-only` 恢复渲染。
-8. 最终回复链接输出目录、`segments.json`、CSV、运行摘要，并展示根目录总览图。
-
-模型语义标签不是人工核验结果；`quality.human_review_recommended=true` 时必须明确告知用户。
+按 [references/quality-gates.md](references/quality-gates.md) 检查时间线、资产一致性、事件截断、资源记录与失败恢复；触发和输出回归位于 [evals](evals)。最终回复链接输出目录、`segments.json`、CSV 和运行摘要，并展示根目录总览图。模型语义标签不是人工核验结果；`quality.human_review_recommended=true` 时必须明确告知用户。

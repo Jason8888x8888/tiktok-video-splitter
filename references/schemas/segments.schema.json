@@ -27,6 +27,52 @@
       },
       "additionalProperties": true
     },
+    "auto_tuning": {
+      "type": "object",
+      "required": [
+        "requested",
+        "strategy",
+        "material_profile",
+        "motion_intensity",
+        "selected_scene_threshold",
+        "selected_min_shot_seconds",
+        "min_shot_seconds_source",
+        "scan",
+        "trials",
+        "reasons"
+      ],
+      "properties": {
+        "requested": {"const": true},
+        "strategy": {"const": "local_transition_density_v2"},
+        "material_profile": {
+          "enum": ["稳定产品展示", "口播/教程演示", "快节奏演示", "快节奏混剪"]
+        },
+        "motion_intensity": {"enum": ["minimal", "low", "medium", "high"]},
+        "selected_scene_threshold": {"type": "number", "minimum": 0, "maximum": 1},
+        "selected_min_shot_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "min_shot_seconds_source": {"enum": ["auto", "user"]},
+        "scan": {"type": "object", "additionalProperties": true},
+        "trials": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "material_profile",
+              "scene_threshold",
+              "min_shot_seconds",
+              "candidate_count",
+              "transition_count",
+              "shots_per_minute",
+              "transitions_per_minute"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "reasons": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
     "segments": {
       "type": "array",
       "minItems": 1,

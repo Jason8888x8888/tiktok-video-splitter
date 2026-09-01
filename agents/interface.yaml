@@ -13,9 +13,9 @@ compatibility:
     paths: []
   execution:
     context: "inline"
-    shell: "python3"
+    shell: "bash"
   trust:
-    source_tier: "local"
+    source_tier: "remote"
     remote_inline_execution: "forbid"
     remote_metadata_policy: "allow-metadata-only"
   degradation:

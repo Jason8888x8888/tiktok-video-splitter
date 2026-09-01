@@ -1,0 +1,544 @@
+{
+  "ok": true,
+  "cases": "evals/output/cases.jsonl",
+  "summary": {
+    "case_count": 5,
+    "file_backed_case_count": 0,
+    "near_neighbor_case_count": 0,
+    "boundary_case_count": 0,
+    "baseline_pass_rate": 0.0,
+    "with_skill_pass_rate": 100.0,
+    "delta": 100.0,
+    "regression_count": 0,
+    "gate_pass": true,
+    "failure_taxonomy": [],
+    "blind_pair_count": 0
+  },
+  "results": [
+    {
+      "id": "local_split_contract",
+      "prompt": "把这条本地 MP4 按物理分镜拆开，默认本地处理。",
+      "input_files": [],
+      "metadata": {},
+      "baseline": {
+        "score": 0.0,
+        "passed_count": 0,
+        "failed_count": 3,
+        "checks": [
+          {
+            "id": "preflight",
+            "description": "先执行只读预检。",
+            "weight": 1.0,
+            "failure_type": "missing_preflight",
+            "passed": false,
+            "missing": [
+              "只读预检"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "local-boundary",
+            "description": "明确本地零 Token 且不上传。",
+            "weight": 1.0,
+            "failure_type": "privacy_boundary",
+            "passed": false,
+            "missing": [
+              "零 Token",
+              "不上传"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "output-contract",
+            "description": "列出关键可追溯产物。",
+            "weight": 1.0,
+            "failure_type": "missing_output_contract",
+            "passed": false,
+            "missing": [
+              "segments.json",
+              "run-summary.json"
+            ],
+            "present_forbidden": []
+          }
+        ],
+        "failed": [
+          {
+            "id": "preflight",
+            "description": "先执行只读预检。",
+            "weight": 1.0,
+            "failure_type": "missing_preflight",
+            "passed": false,
+            "missing": [
+              "只读预检"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "local-boundary",
+            "description": "明确本地零 Token 且不上传。",
+            "weight": 1.0,
+            "failure_type": "privacy_boundary",
+            "passed": false,
+            "missing": [
+              "零 Token",
+              "不上传"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "output-contract",
+            "description": "列出关键可追溯产物。",
+            "weight": 1.0,
+            "failure_type": "missing_output_contract",
+            "passed": false,
+            "missing": [
+              "segments.json",
+              "run-summary.json"
+            ],
+            "present_forbidden": []
+          }
+        ]
+      },
+      "with_skill": {
+        "score": 100.0,
+        "passed_count": 3,
+        "failed_count": 0,
+        "checks": [
+          {
+            "id": "preflight",
+            "description": "先执行只读预检。",
+            "weight": 1.0,
+            "failure_type": "missing_preflight",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "local-boundary",
+            "description": "明确本地零 Token 且不上传。",
+            "weight": 1.0,
+            "failure_type": "privacy_boundary",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "output-contract",
+            "description": "列出关键可追溯产物。",
+            "weight": 1.0,
+            "failure_type": "missing_output_contract",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          }
+        ],
+        "failed": []
+      },
+      "delta": 100.0,
+      "winner": "with_skill",
+      "failure_taxonomy": []
+    },
+    {
+      "id": "hybrid_requires_authorization",
+      "prompt": "给视频分镜加 AI 语义名称。",
+      "input_files": [],
+      "metadata": {},
+      "baseline": {
+        "score": 0.0,
+        "passed_count": 0,
+        "failed_count": 2,
+        "checks": [
+          {
+            "id": "authorization",
+            "description": "上传与费用需要明确授权。",
+            "weight": 1.0,
+            "failure_type": "missing_authorization",
+            "passed": false,
+            "missing": [
+              "明确授权",
+              "费用"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "boundary",
+            "description": "模型不能改物理边界。",
+            "weight": 1.0,
+            "failure_type": "boundary_drift",
+            "passed": false,
+            "missing": [
+              "不能合并、拆分或重排"
+            ],
+            "present_forbidden": []
+          }
+        ],
+        "failed": [
+          {
+            "id": "authorization",
+            "description": "上传与费用需要明确授权。",
+            "weight": 1.0,
+            "failure_type": "missing_authorization",
+            "passed": false,
+            "missing": [
+              "明确授权",
+              "费用"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "boundary",
+            "description": "模型不能改物理边界。",
+            "weight": 1.0,
+            "failure_type": "boundary_drift",
+            "passed": false,
+            "missing": [
+              "不能合并、拆分或重排"
+            ],
+            "present_forbidden": []
+          }
+        ]
+      },
+      "with_skill": {
+        "score": 100.0,
+        "passed_count": 2,
+        "failed_count": 0,
+        "checks": [
+          {
+            "id": "authorization",
+            "description": "上传与费用需要明确授权。",
+            "weight": 1.0,
+            "failure_type": "missing_authorization",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "boundary",
+            "description": "模型不能改物理边界。",
+            "weight": 1.0,
+            "failure_type": "boundary_drift",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          }
+        ],
+        "failed": []
+      },
+      "delta": 100.0,
+      "winner": "with_skill",
+      "failure_taxonomy": []
+    },
+    {
+      "id": "download_only_boundary",
+      "prompt": "只下载这条 TikTok，不要拆分。",
+      "input_files": [],
+      "metadata": {},
+      "baseline": {
+        "score": 0.0,
+        "passed_count": 0,
+        "failed_count": 2,
+        "checks": [
+          {
+            "id": "no-trigger",
+            "description": "下载请求不误触发拆分。",
+            "weight": 1.0,
+            "failure_type": "over_trigger",
+            "passed": false,
+            "missing": [
+              "download-only",
+              "不触发"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "no-package",
+            "description": "不创建无关产物。",
+            "weight": 1.0,
+            "failure_type": "scope_expansion",
+            "passed": false,
+            "missing": [
+              "不创建分镜素材包"
+            ],
+            "present_forbidden": []
+          }
+        ],
+        "failed": [
+          {
+            "id": "no-trigger",
+            "description": "下载请求不误触发拆分。",
+            "weight": 1.0,
+            "failure_type": "over_trigger",
+            "passed": false,
+            "missing": [
+              "download-only",
+              "不触发"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "no-package",
+            "description": "不创建无关产物。",
+            "weight": 1.0,
+            "failure_type": "scope_expansion",
+            "passed": false,
+            "missing": [
+              "不创建分镜素材包"
+            ],
+            "present_forbidden": []
+          }
+        ]
+      },
+      "with_skill": {
+        "score": 100.0,
+        "passed_count": 2,
+        "failed_count": 0,
+        "checks": [
+          {
+            "id": "no-trigger",
+            "description": "下载请求不误触发拆分。",
+            "weight": 1.0,
+            "failure_type": "over_trigger",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "no-package",
+            "description": "不创建无关产物。",
+            "weight": 1.0,
+            "failure_type": "scope_expansion",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          }
+        ],
+        "failed": []
+      },
+      "delta": 100.0,
+      "winner": "with_skill",
+      "failure_taxonomy": []
+    },
+    {
+      "id": "static_video_auto_tuning",
+      "prompt": "三秒静态视频使用自动灵敏度会怎么处理？",
+      "input_files": [],
+      "metadata": {},
+      "baseline": {
+        "score": 0.0,
+        "passed_count": 0,
+        "failed_count": 3,
+        "checks": [
+          {
+            "id": "v2-strategy",
+            "description": "使用修复后的策略版本。",
+            "weight": 1.0,
+            "failure_type": "stale_strategy",
+            "passed": false,
+            "missing": [
+              "local_transition_density_v2"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "baseline-shot",
+            "description": "排除基线分镜。",
+            "weight": 1.0,
+            "failure_type": "baseline_inflation",
+            "passed": false,
+            "missing": [
+              "不把视频起点算成转场",
+              "transition_count 为 0"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "evidence",
+            "description": "选择有可追溯证据。",
+            "weight": 1.0,
+            "failure_type": "missing_evidence",
+            "passed": false,
+            "missing": [
+              "三个 JSON 契约"
+            ],
+            "present_forbidden": []
+          }
+        ],
+        "failed": [
+          {
+            "id": "v2-strategy",
+            "description": "使用修复后的策略版本。",
+            "weight": 1.0,
+            "failure_type": "stale_strategy",
+            "passed": false,
+            "missing": [
+              "local_transition_density_v2"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "baseline-shot",
+            "description": "排除基线分镜。",
+            "weight": 1.0,
+            "failure_type": "baseline_inflation",
+            "passed": false,
+            "missing": [
+              "不把视频起点算成转场",
+              "transition_count 为 0"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "evidence",
+            "description": "选择有可追溯证据。",
+            "weight": 1.0,
+            "failure_type": "missing_evidence",
+            "passed": false,
+            "missing": [
+              "三个 JSON 契约"
+            ],
+            "present_forbidden": []
+          }
+        ]
+      },
+      "with_skill": {
+        "score": 100.0,
+        "passed_count": 3,
+        "failed_count": 0,
+        "checks": [
+          {
+            "id": "v2-strategy",
+            "description": "使用修复后的策略版本。",
+            "weight": 1.0,
+            "failure_type": "stale_strategy",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "baseline-shot",
+            "description": "排除基线分镜。",
+            "weight": 1.0,
+            "failure_type": "baseline_inflation",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "evidence",
+            "description": "选择有可追溯证据。",
+            "weight": 1.0,
+            "failure_type": "missing_evidence",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          }
+        ],
+        "failed": []
+      },
+      "delta": 100.0,
+      "winner": "with_skill",
+      "failure_taxonomy": []
+    },
+    {
+      "id": "partial_recovery",
+      "prompt": "运行失败后留下 .partial 目录，应该怎么办？",
+      "input_files": [],
+      "metadata": {},
+      "baseline": {
+        "score": 0.0,
+        "passed_count": 0,
+        "failed_count": 2,
+        "checks": [
+          {
+            "id": "inspect-summary",
+            "description": "先读取失败证据。",
+            "weight": 1.0,
+            "failure_type": "missing_failure_evidence",
+            "passed": false,
+            "missing": [
+              "stage",
+              "recoverable",
+              "next_action"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "safe-recovery",
+            "description": "恢复有契约和覆盖边界。",
+            "weight": 1.0,
+            "failure_type": "unsafe_recovery",
+            "passed": false,
+            "missing": [
+              "合法 segments.json",
+              "--render-only",
+              "不要直接覆盖"
+            ],
+            "present_forbidden": []
+          }
+        ],
+        "failed": [
+          {
+            "id": "inspect-summary",
+            "description": "先读取失败证据。",
+            "weight": 1.0,
+            "failure_type": "missing_failure_evidence",
+            "passed": false,
+            "missing": [
+              "stage",
+              "recoverable",
+              "next_action"
+            ],
+            "present_forbidden": []
+          },
+          {
+            "id": "safe-recovery",
+            "description": "恢复有契约和覆盖边界。",
+            "weight": 1.0,
+            "failure_type": "unsafe_recovery",
+            "passed": false,
+            "missing": [
+              "合法 segments.json",
+              "--render-only",
+              "不要直接覆盖"
+            ],
+            "present_forbidden": []
+          }
+        ]
+      },
+      "with_skill": {
+        "score": 100.0,
+        "passed_count": 2,
+        "failed_count": 0,
+        "checks": [
+          {
+            "id": "inspect-summary",
+            "description": "先读取失败证据。",
+            "weight": 1.0,
+            "failure_type": "missing_failure_evidence",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          },
+          {
+            "id": "safe-recovery",
+            "description": "恢复有契约和覆盖边界。",
+            "weight": 1.0,
+            "failure_type": "unsafe_recovery",
+            "passed": true,
+            "missing": [],
+            "present_forbidden": []
+          }
+        ],
+        "failed": []
+      },
+      "delta": 100.0,
+      "winner": "with_skill",
+      "failure_taxonomy": []
+    }
+  ],
+  "failures": [],
+  "artifacts": {
+    "json": "reports/output_quality_scorecard.json",
+    "markdown": "reports/output_quality_scorecard.md"
+  }
+}

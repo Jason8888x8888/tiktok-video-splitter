@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -231,6 +233,7 @@ class ModeTests(unittest.TestCase):
         auto_tuning = plan["statistics"]["auto_tuning"]
         self.assertEqual(auto_tuning["material_profile"], "口播/教程演示")
         self.assertEqual(auto_tuning["selected_min_shot_seconds"], 0.80)
+        self.assertEqual(auto_tuning["strategy"], "local_transition_density_v2")
 
     def test_auto_tuning_picks_fast_montage_when_density_stays_high(self) -> None:
         scanned_events = [
@@ -247,6 +250,21 @@ class ModeTests(unittest.TestCase):
             plan["statistics"]["auto_tuning"]["material_profile"],
             "快节奏混剪",
         )
+
+    def test_auto_tuning_short_clip_without_events_uses_stable_profile(self) -> None:
+        plan = assetizer.build_auto_tuning_plan([], 3000, max_events=120)
+        auto_tuning = plan["statistics"]["auto_tuning"]
+        self.assertAlmostEqual(plan["scene_threshold"], 0.22)
+        self.assertEqual(auto_tuning["material_profile"], "稳定产品展示")
+        self.assertEqual(auto_tuning["motion_intensity"], "minimal")
+        for trial in auto_tuning["trials"]:
+            self.assertEqual(trial["candidate_count"], 1)
+            self.assertEqual(trial["transition_count"], 0)
+            self.assertEqual(trial["transitions_per_minute"], 0.0)
+
+    def test_transition_density_excludes_the_baseline_shot(self) -> None:
+        self.assertEqual(assetizer.transitions_per_minute(1, 1000), 0.0)
+        self.assertEqual(assetizer.transitions_per_minute(2, 3000), 20.0)
 
     def test_local_groups_use_objective_time_range_names(self) -> None:
         groups, summary = assetizer.local_only_groups(
@@ -372,6 +390,105 @@ class PreflightTests(unittest.TestCase):
         )
         self.assertFalse(credential_check["ok"])
         self.assertFalse(report["api_called"])
+
+
+class SchemaContractTests(unittest.TestCase):
+    def test_auto_tuning_contract_tracks_transition_density_v2(self) -> None:
+        schema_dir = SCRIPTS_DIR.parent / "references" / "schemas"
+        for schema_name in (
+            "candidates.schema.json",
+            "segments.schema.json",
+            "run-summary.schema.json",
+        ):
+            with self.subTest(schema=schema_name):
+                schema = json.loads((schema_dir / schema_name).read_text(encoding="utf-8"))
+                auto_tuning = schema["properties"]["auto_tuning"]
+                self.assertEqual(
+                    auto_tuning["properties"]["strategy"]["const"],
+                    "local_transition_density_v2",
+                )
+                trial_required = auto_tuning["properties"]["trials"]["items"][
+                    "required"
+                ]
+                self.assertIn("transition_count", trial_required)
+                self.assertIn("transitions_per_minute", trial_required)
+
+
+@unittest.skipUnless(
+    shutil.which("ffmpeg") and shutil.which("ffprobe"),
+    "ffmpeg and ffprobe are required for the end-to-end smoke test",
+)
+class EndToEndTests(unittest.TestCase):
+    def test_static_video_auto_mode_emits_stable_v2_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temporary = Path(temp_dir)
+            source = temporary / "static-demo.mp4"
+            output_parent = temporary / "output"
+            output_parent.mkdir()
+            generated = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "color=c=black:s=320x240:r=24:d=3",
+                    "-c:v",
+                    "libx264",
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-movflags",
+                    "+faststart",
+                    str(source),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(generated.returncode, 0, generated.stderr)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "assetize_tiktok.py"),
+                    str(source),
+                    "--output-parent",
+                    str(output_parent),
+                    "--mode",
+                    "local",
+                    "--scene-threshold",
+                    "auto",
+                    "--plan-only",
+                ],
+                cwd=SCRIPTS_DIR.parent,
+                check=False,
+                capture_output=True,
+                text=True,
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            result = json.loads(completed.stdout)
+            self.assertEqual(
+                result["auto_tuning"]["strategy"],
+                "local_transition_density_v2",
+            )
+            self.assertEqual(
+                result["auto_tuning"]["material_profile"],
+                "稳定产品展示",
+            )
+
+            package_root = Path(result["output_dir"])
+            self.assertTrue((package_root / "分镜总览.jpg").is_file())
+            for contract_name in ("candidates.json", "segments.json", "run-summary.json"):
+                contract_path = package_root / "03_索引记录" / contract_name
+                payload = json.loads(contract_path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    payload["auto_tuning"]["strategy"],
+                    "local_transition_density_v2",
+                )
+                self.assertNotIn(str(temporary), json.dumps(payload, ensure_ascii=False))
 
 
 if __name__ == "__main__":

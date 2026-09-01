@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import py_compile
@@ -16,10 +17,17 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 SKILL_ROOT = REPOSITORY_ROOT
 REQUIRED_REPOSITORY_FILES = {
+    ".github/ISSUE_TEMPLATE/bug_report.yml",
+    ".github/ISSUE_TEMPLATE/config.yml",
+    ".github/ISSUE_TEMPLATE/feature_request.yml",
+    ".github/pull_request_template.md",
+    ".github/workflows/ci.yml",
     ".gitignore",
     "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "docs/assets/output-directory-example.png",
     "LICENSE",
+    "manifest.json",
     "README.md",
     "SECURITY.md",
     "requirements.txt",
@@ -28,7 +36,23 @@ REQUIRED_SKILL_FILES = {
     "SKILL.md",
     "agents/interface.yaml",
     "agents/openai.yaml",
+    "evals/history/2026-09-01-beta3.json",
+    "evals/output/cases.jsonl",
+    "evals/trigger_cases.json",
+    "references/auto-tuning.md",
+    "references/quality-gates.md",
+    "references/schemas/candidates.schema.json",
+    "references/schemas/download-summary.schema.json",
+    "references/schemas/run-summary.schema.json",
+    "references/schemas/segments.schema.json",
     "references/shot-label-prompt.md",
+    "reports/conformance-agent-skills.json",
+    "reports/conformance-generic.json",
+    "reports/conformance-openai.json",
+    "reports/output_quality_scorecard.json",
+    "reports/output_quality_scorecard.md",
+    "reports/security_trust_report.json",
+    "reports/skill-ir.json",
     "requirements.txt",
     "security/network_policy.json",
     "security/permission_policy.json",
@@ -64,6 +88,8 @@ def verify_clean_tree() -> None:
     if ".DS_Store" not in ignored_patterns:
         fail(".gitignore must exclude .DS_Store")
     for path in REPOSITORY_ROOT.rglob("*"):
+        if ".git" in path.relative_to(REPOSITORY_ROOT).parts:
+            continue
         if path.name in FORBIDDEN_NAMES or path.suffix == ".pyc":
             fail(f"Generated file must not be published: {path.relative_to(REPOSITORY_ROOT)}")
 
@@ -84,6 +110,8 @@ def verify_skill_frontmatter() -> None:
 
 def verify_public_text() -> None:
     for path in REPOSITORY_ROOT.rglob("*"):
+        if ".git" in path.relative_to(REPOSITORY_ROOT).parts:
+            continue
         if not path.is_file() or path.suffix.lower() not in {
             ".md",
             ".py",
@@ -113,6 +141,30 @@ def verify_json_schemas() -> None:
         payload = json.loads(path.read_text(encoding="utf-8"))
         if payload.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
             fail(f"Unexpected JSON Schema draft: {path.name}")
+
+
+def verify_release_metadata() -> None:
+    manifest = json.loads((REPOSITORY_ROOT / "manifest.json").read_text(encoding="utf-8"))
+    version = manifest.get("version")
+    if not version:
+        fail("manifest.json is missing version")
+    contracts = (SKILL_ROOT / "scripts" / "package_contracts.py").read_text(
+        encoding="utf-8"
+    )
+    if f'SKILL_VERSION = "{version}"' not in contracts:
+        fail("manifest and package contract versions differ")
+    for relative in ("README.md", "CHANGELOG.md"):
+        if version not in (REPOSITORY_ROOT / relative).read_text(encoding="utf-8"):
+            fail(f"{relative} does not mention release version {version}")
+    for relative in (
+        "reports/conformance-agent-skills.json",
+        "reports/conformance-generic.json",
+        "reports/conformance-openai.json",
+        "reports/security_trust_report.json",
+    ):
+        payload = json.loads((REPOSITORY_ROOT / relative).read_text(encoding="utf-8"))
+        if payload.get("ok") is not True:
+            fail(f"Release evidence did not pass: {relative}")
 
 
 def verify_python() -> None:
@@ -145,12 +197,19 @@ def run_tests() -> None:
         fail("Unit tests failed")
 
 
+def build_parser() -> argparse.ArgumentParser:
+    return argparse.ArgumentParser(
+        description="Verify the repository's public release package."
+    )
+
+
 def main() -> int:
     verify_required_files()
     verify_clean_tree()
     verify_skill_frontmatter()
     verify_public_text()
     verify_json_schemas()
+    verify_release_metadata()
     verify_python()
     run_tests()
     verify_clean_tree()
@@ -158,8 +217,13 @@ def main() -> int:
     return 0
 
 
+def cli() -> int:
+    build_parser().parse_args()
+    return main()
+
+
 if __name__ == "__main__":
     try:
-        raise SystemExit(main())
+        raise SystemExit(cli())
     except (OSError, RuntimeError, json.JSONDecodeError, py_compile.PyCompileError) as exc:
         raise SystemExit(f"Release verification failed: {exc}") from exc

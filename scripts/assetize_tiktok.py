@@ -292,6 +292,11 @@ def shots_per_minute(candidate_count: int, duration_ms: int) -> float:
     return candidate_count / max(duration_ms / 60000, 1 / 60)
 
 
+def transitions_per_minute(candidate_count: int, duration_ms: int) -> float:
+    transition_count = max(candidate_count - 1, 0)
+    return transition_count / max(duration_ms / 60000, 1 / 60)
+
+
 def motion_intensity_label(score_summary: dict) -> str:
     if score_summary["count"] == 0:
         return "minimal"
@@ -514,8 +519,12 @@ def build_auto_tuning_plan(
                 "statistics": detection_statistics,
                 "candidates": candidates,
                 "candidate_count": len(candidates),
+                "transition_count": max(len(candidates) - 1, 0),
                 "shots_per_minute": round(
                     shots_per_minute(len(candidates), duration_ms), 3
+                ),
+                "transitions_per_minute": round(
+                    transitions_per_minute(len(candidates), duration_ms), 3
                 ),
                 "duration_ms": candidate_duration_summary(candidates),
             }
@@ -524,27 +533,31 @@ def build_auto_tuning_plan(
     by_threshold = {
         round(trial["scene_threshold"], 2): trial for trial in trials
     }
-    density_030 = by_threshold[0.30]["shots_per_minute"]
-    density_035 = by_threshold[0.35]["shots_per_minute"]
-    density_045 = by_threshold[0.45]["shots_per_minute"]
+    density_030 = by_threshold[0.30]["transitions_per_minute"]
+    density_035 = by_threshold[0.35]["transitions_per_minute"]
+    density_045 = by_threshold[0.45]["transitions_per_minute"]
     reasons: list[str] = []
 
-    if density_045 >= 28:
+    if scan_summary["count"] == 0:
+        selected = by_threshold[0.22]
+        material_profile = "稳定产品展示"
+        reasons.append("预扫描未检测到场景转场，使用最保守的稳定素材档。")
+    elif density_045 >= 28:
         selected = by_threshold[0.45]
         material_profile = "快节奏混剪"
-        reasons.append("0.45 阈值下仍保持较高分镜密度，判断为快节奏混剪。")
+        reasons.append("0.45 阈值下仍保持较高转场密度，判断为快节奏混剪。")
     elif density_030 > 36 and density_035 < density_030:
         selected = by_threshold[0.35]
         material_profile = "快节奏演示"
-        reasons.append("0.30 阈值下分镜密度偏高，提高到 0.35 以减少碎切。")
+        reasons.append("0.30 阈值下转场密度偏高，提高到 0.35 以减少碎切。")
     elif density_030 >= 10:
         selected = by_threshold[0.30]
         material_profile = "口播/教程演示"
-        reasons.append("0.30 阈值下分镜密度处于教程/口播素材的可用区间。")
+        reasons.append("0.30 阈值下转场密度处于教程/口播素材的可用区间。")
     else:
         selected = by_threshold[0.22]
         material_profile = "稳定产品展示"
-        reasons.append("画面变化密度偏低，降低阈值以保留产品角度或步骤变化。")
+        reasons.append("画面转场密度偏低，降低阈值以保留产品角度或步骤变化。")
 
     if min_shot_seconds_override is None:
         reasons.append(
@@ -561,7 +574,9 @@ def build_auto_tuning_plan(
             "scene_threshold": trial["scene_threshold"],
             "min_shot_seconds": round(trial["min_shot_seconds"], 3),
             "candidate_count": trial["candidate_count"],
+            "transition_count": trial["transition_count"],
             "shots_per_minute": trial["shots_per_minute"],
+            "transitions_per_minute": trial["transitions_per_minute"],
             "duration_ms": trial["duration_ms"],
             "raw_event_count": trial["statistics"]["raw_event_count"],
             "clustered_event_count": trial["statistics"]["clustered_event_count"],
@@ -573,7 +588,7 @@ def build_auto_tuning_plan(
 
     selected["statistics"]["auto_tuning"] = {
         "requested": True,
-        "strategy": "local_scene_density_v1",
+        "strategy": "local_transition_density_v2",
         "material_profile": material_profile,
         "motion_intensity": motion_intensity_label(scan_summary),
         "selected_scene_threshold": selected["scene_threshold"],
