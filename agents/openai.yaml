@@ -1,4 +1,4 @@
 interface:
   display_name: "TikTok 视频拆分"
-  short_description: "把一条视频拆成剪映/CapCut 兼容的物理分镜素材包"
-  default_prompt: "使用 $tiktok-video-splitter 对这条视频做本地零 Token 物理分镜；只有我明确授权上传和费用时才使用 AI 语义命名。"
+  short_description: "把一条视频拆成剪映/CapCut 兼容的分镜素材包"
+  default_prompt: "使用 $tiktok-video-splitter 对这条视频做本地零 Token 分镜拆解，默认自动判断灵敏度；只有我明确授权上传和费用时才使用 AI 语义命名。"

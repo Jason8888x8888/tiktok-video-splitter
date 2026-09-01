@@ -12,9 +12,10 @@ description: |
 
 - 一次只处理一条用户明确提供的视频，不发现账号、不遍历播放列表、不批量抓取。
 - 默认使用“本地基础拆解”（CLI：`local`）：FFmpeg 本地检测、切片、抽帧，模型调用和 Token 均为 0。
+- 默认拆解灵敏度为 `--scene-threshold auto`：先本地预扫描视频，不上传、不用模型，再根据场景变化密度、运动强度、候选切点数量和视频时长自动选择阈值与最短分镜时长。
 - “AI 语义拆解”（CLI：`hybrid`）只给既有物理分镜逐一命名，不得合并、拆分、重排或修改时间边界。
 - 下载失败时不绕过登录、地区、验证码、访问控制或平台限制。
-- 下载-only 请求应交给专门下载 Skill；字幕、叙事分析和最终剪辑不属于本 Skill。
+- 下载-only 请求应交给专门下载 Skill；CapCut 草稿同步、字幕、叙事分析和最终剪辑不属于本 Skill。
 
 ## 安全约束
 
@@ -54,7 +55,18 @@ python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
   --mode local
 ```
 
-本地模式使用客观名称，如 `001_物理分镜_00m00s-00m04s.mp4`；语义置信度为“不适用”，不能伪装成 `1.0`。
+自动灵敏度可显式写成：
+
+```bash
+python3 scripts/assetize_tiktok.py "/absolute/path/video.mp4" \
+  --output-parent "/absolute/path/output" \
+  --mode local \
+  --scene-threshold auto
+```
+
+自动流程：先本地预扫描视频，不上传、不用模型；统计画面变化密度、运动强度、候选切点数量和视频时长；判断素材更接近“口播/教程演示”“快节奏演示/混剪”或“稳定产品展示”；自动选择 `scene-threshold` 和 `min-shot-seconds`，并在 `run-summary.json` 记录选择原因。也可手动指定数值，例如 `--scene-threshold 0.30` 或 `--scene-threshold 0.35`。
+
+本地模式使用客观名称，如 `001_分镜_00m00s-00m04s.mp4`；语义置信度为“不适用”，不能伪装成 `1.0`。
 
 AI 语义拆解：
 
@@ -104,7 +116,7 @@ python3 scripts/assetize_tiktok.py \
     └── run-summary.json
 ```
 
-分镜视频统一编码为 MP4/H.264/yuv420p；存在音频时编码为 AAC。这是“剪映/CapCut 兼容编码配置”，不能宣称已经通过真实编辑器导入验证。
+分镜视频统一编码为 MP4/H.264/yuv420p；存在音频时编码为 AAC。这是“剪映/CapCut 兼容编码配置”，不能宣称已经写入真实 CapCut 草稿或通过真实编辑器导入验证。
 
 ## 验收
 

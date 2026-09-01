@@ -20,7 +20,7 @@ from runtime_safety import redact_sensitive_text
 
 SCRIPT_INTERFACE = "internal-module"
 SCRIPT_INTERFACE_REASON = "Imported by the CLI for deterministic output contracts and pipeline state."
-SKILL_VERSION = "0.1.0-beta.1"
+SKILL_VERSION = "0.1.0-beta.2"
 INVALID_FILENAME_RE = re.compile(r"[\\/:*?\"<>|\x00-\x1f]")
 
 

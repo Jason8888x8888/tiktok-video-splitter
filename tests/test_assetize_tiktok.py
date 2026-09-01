@@ -203,7 +203,50 @@ class ModeTests(unittest.TestCase):
             ["video.mp4", "--output-parent", "/tmp/output"]
         )
         self.assertEqual(assetizer.selected_mode(args), "local")
-        self.assertAlmostEqual(args.scene_threshold, 0.20)
+        self.assertEqual(args.scene_threshold, "auto")
+
+    def test_numeric_scene_threshold_is_supported(self) -> None:
+        args = assetizer.build_parser().parse_args(
+            [
+                "video.mp4",
+                "--output-parent",
+                "/tmp/output",
+                "--scene-threshold",
+                "0.35",
+            ]
+        )
+        self.assertAlmostEqual(args.scene_threshold, 0.35)
+
+    def test_auto_tuning_picks_tutorial_profile_for_moderate_density(self) -> None:
+        scanned_events = [
+            {"time_ms": time_ms, "score": 0.40}
+            for time_ms in range(3000, 60000, 3000)
+        ]
+        plan = assetizer.build_auto_tuning_plan(
+            scanned_events,
+            60000,
+            max_events=120,
+        )
+        self.assertAlmostEqual(plan["scene_threshold"], 0.30)
+        auto_tuning = plan["statistics"]["auto_tuning"]
+        self.assertEqual(auto_tuning["material_profile"], "口播/教程演示")
+        self.assertEqual(auto_tuning["selected_min_shot_seconds"], 0.80)
+
+    def test_auto_tuning_picks_fast_montage_when_density_stays_high(self) -> None:
+        scanned_events = [
+            {"time_ms": time_ms, "score": 0.70}
+            for time_ms in range(1000, 60000, 1000)
+        ]
+        plan = assetizer.build_auto_tuning_plan(
+            scanned_events,
+            60000,
+            max_events=120,
+        )
+        self.assertAlmostEqual(plan["scene_threshold"], 0.45)
+        self.assertEqual(
+            plan["statistics"]["auto_tuning"]["material_profile"],
+            "快节奏混剪",
+        )
 
     def test_local_groups_use_objective_time_range_names(self) -> None:
         groups, summary = assetizer.local_only_groups(
@@ -216,7 +259,7 @@ class ModeTests(unittest.TestCase):
                 }
             ]
         )
-        self.assertEqual(groups[0]["purpose"], "物理分镜")
+        self.assertEqual(groups[0]["purpose"], "分镜")
         self.assertEqual(groups[0]["content"], "00m00s-00m04s")
         self.assertIsNone(groups[0]["confidence"])
         self.assertEqual(summary["mode"], "local")

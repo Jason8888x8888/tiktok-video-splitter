@@ -11,6 +11,7 @@ import math
 import os
 import re
 import shutil
+import statistics
 import subprocess
 import sys
 import time
@@ -54,6 +55,32 @@ DEFAULT_MODEL = "doubao-seed-2-0-lite-260428"
 DEFAULT_MEDIA_TIMEOUT_SECONDS = 1800
 DEFAULT_MAX_HYBRID_UPLOAD_MB = 200
 DEFAULT_MAX_SCENE_EVENTS = 120
+DEFAULT_SCENE_THRESHOLD: str | float = "auto"
+DEFAULT_MANUAL_SCENE_THRESHOLD = 0.20
+DEFAULT_MIN_SHOT_SECONDS = 0.60
+AUTO_SCAN_THRESHOLD = 0.10
+AUTO_SCENE_PROFILES = (
+    {
+        "material_profile": "稳定产品展示",
+        "scene_threshold": 0.22,
+        "min_shot_seconds": 0.80,
+    },
+    {
+        "material_profile": "口播/教程演示",
+        "scene_threshold": 0.30,
+        "min_shot_seconds": 0.80,
+    },
+    {
+        "material_profile": "快节奏演示",
+        "scene_threshold": 0.35,
+        "min_shot_seconds": 0.80,
+    },
+    {
+        "material_profile": "快节奏混剪",
+        "scene_threshold": 0.45,
+        "min_shot_seconds": 0.60,
+    },
+)
 DEFAULT_PROMPT_FILE = (
     Path(__file__).resolve().parent.parent
     / "references"
@@ -86,6 +113,22 @@ API_KEY_PATTERNS = (
         r"(?![A-Za-z0-9._-])"
     ),
 )
+
+
+def parse_scene_threshold(value: str | float) -> str | float:
+    text = str(value).strip().lower()
+    if text == "auto":
+        return "auto"
+    try:
+        return float(text)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "--scene-threshold must be a number between 0.01 and 1, or auto"
+        ) from exc
+
+
+def resolved_min_shot_seconds(value: float | None) -> float:
+    return value if value is not None else DEFAULT_MIN_SHOT_SECONDS
 
 
 def run_command(
@@ -216,16 +259,56 @@ def probe_media(
     }
 
 
-def detect_scene_events(
+def score_distribution(events: list[dict]) -> dict:
+    scores = sorted(float(event["score"]) for event in events)
+    if not scores:
+        return {
+            "count": 0,
+            "mean": 0.0,
+            "median": 0.0,
+            "p90": 0.0,
+            "maximum": 0.0,
+        }
+    p90_index = min(len(scores) - 1, math.ceil(len(scores) * 0.90) - 1)
+    return {
+        "count": len(scores),
+        "mean": round(sum(scores) / len(scores), 6),
+        "median": round(statistics.median(scores), 6),
+        "p90": round(scores[p90_index], 6),
+        "maximum": round(scores[-1], 6),
+    }
+
+
+def candidate_duration_summary(candidates: list[dict]) -> dict:
+    durations = [candidate["duration_ms"] for candidate in candidates]
+    return {
+        "minimum": min(durations),
+        "median": round(statistics.median(durations)),
+        "maximum": max(durations),
+    }
+
+
+def shots_per_minute(candidate_count: int, duration_ms: int) -> float:
+    return candidate_count / max(duration_ms / 60000, 1 / 60)
+
+
+def motion_intensity_label(score_summary: dict) -> str:
+    if score_summary["count"] == 0:
+        return "minimal"
+    if score_summary["p90"] >= 0.65:
+        return "high"
+    if score_summary["p90"] >= 0.35:
+        return "medium"
+    return "low"
+
+
+def collect_scene_events(
     video: Path,
     ffmpeg: str,
     *,
-    scene_threshold: float,
-    min_event_gap_ms: int = 250,
-    max_events: int = DEFAULT_MAX_SCENE_EVENTS,
+    scan_threshold: float = AUTO_SCAN_THRESHOLD,
     timeout_seconds: int = DEFAULT_MEDIA_TIMEOUT_SECONDS,
-) -> tuple[list[dict], dict]:
-    scan_threshold = min(scene_threshold, 0.10)
+) -> list[dict]:
     completed = run_command(
         [
             ffmpeg,
@@ -254,12 +337,25 @@ def detect_scene_events(
         score_match = SCENE_SCORE_RE.search(line)
         if score_match and pending_time is not None:
             score = float(score_match.group(1))
-            if score >= scene_threshold:
+            if score >= scan_threshold:
                 events.append(
                     {"time_ms": round(pending_time * 1000), "score": round(score, 6)}
                 )
             pending_time = None
+    return events
 
+
+def summarize_scene_events(
+    scanned_events: list[dict],
+    *,
+    scene_threshold: float,
+    scan_threshold: float,
+    min_event_gap_ms: int = 250,
+    max_events: int = DEFAULT_MAX_SCENE_EVENTS,
+) -> tuple[list[dict], dict]:
+    events = [
+        event for event in scanned_events if float(event["score"]) >= scene_threshold
+    ]
     clustered: list[dict] = []
     for event in sorted(events, key=lambda item: item["time_ms"]):
         if clustered and event["time_ms"] - clustered[-1]["time_ms"] < min_event_gap_ms:
@@ -282,8 +378,35 @@ def detect_scene_events(
         "events_truncated": clustered_count > max_events,
         "max_events": max_events,
         "scan_threshold": round(scan_threshold, 6),
+        "score_summary": score_distribution(events),
+        "scan_score_summary": score_distribution(scanned_events),
     }
     return kept, statistics_payload
+
+
+def detect_scene_events(
+    video: Path,
+    ffmpeg: str,
+    *,
+    scene_threshold: float,
+    min_event_gap_ms: int = 250,
+    max_events: int = DEFAULT_MAX_SCENE_EVENTS,
+    timeout_seconds: int = DEFAULT_MEDIA_TIMEOUT_SECONDS,
+) -> tuple[list[dict], dict]:
+    scan_threshold = min(scene_threshold, AUTO_SCAN_THRESHOLD)
+    scanned_events = collect_scene_events(
+        video,
+        ffmpeg,
+        scan_threshold=scan_threshold,
+        timeout_seconds=timeout_seconds,
+    )
+    return summarize_scene_events(
+        scanned_events,
+        scene_threshold=scene_threshold,
+        scan_threshold=scan_threshold,
+        min_event_gap_ms=min_event_gap_ms,
+        max_events=max_events,
+    )
 
 
 def build_candidate_shots(
@@ -352,6 +475,121 @@ def build_candidate_shots(
     if not candidates:
         raise AssetizeError("Scene detection did not produce any candidate shots")
     return candidates
+
+
+def build_auto_tuning_plan(
+    scanned_events: list[dict],
+    duration_ms: int,
+    *,
+    max_events: int,
+    min_shot_seconds_override: float | None = None,
+) -> dict:
+    scan_summary = score_distribution(scanned_events)
+    trials = []
+    for profile in AUTO_SCENE_PROFILES:
+        min_shot_seconds = (
+            min_shot_seconds_override
+            if min_shot_seconds_override is not None
+            else float(profile["min_shot_seconds"])
+        )
+        scene_threshold = float(profile["scene_threshold"])
+        events, detection_statistics = summarize_scene_events(
+            scanned_events,
+            scene_threshold=scene_threshold,
+            scan_threshold=AUTO_SCAN_THRESHOLD,
+            max_events=max_events,
+        )
+        candidates = build_candidate_shots(
+            events,
+            duration_ms,
+            min_shot_ms=round(min_shot_seconds * 1000),
+        )
+        trials.append(
+            {
+                "material_profile": profile["material_profile"],
+                "scene_threshold": scene_threshold,
+                "min_shot_seconds": min_shot_seconds,
+                "min_shot_ms": round(min_shot_seconds * 1000),
+                "events": events,
+                "statistics": detection_statistics,
+                "candidates": candidates,
+                "candidate_count": len(candidates),
+                "shots_per_minute": round(
+                    shots_per_minute(len(candidates), duration_ms), 3
+                ),
+                "duration_ms": candidate_duration_summary(candidates),
+            }
+        )
+
+    by_threshold = {
+        round(trial["scene_threshold"], 2): trial for trial in trials
+    }
+    density_030 = by_threshold[0.30]["shots_per_minute"]
+    density_035 = by_threshold[0.35]["shots_per_minute"]
+    density_045 = by_threshold[0.45]["shots_per_minute"]
+    reasons: list[str] = []
+
+    if density_045 >= 28:
+        selected = by_threshold[0.45]
+        material_profile = "快节奏混剪"
+        reasons.append("0.45 阈值下仍保持较高分镜密度，判断为快节奏混剪。")
+    elif density_030 > 36 and density_035 < density_030:
+        selected = by_threshold[0.35]
+        material_profile = "快节奏演示"
+        reasons.append("0.30 阈值下分镜密度偏高，提高到 0.35 以减少碎切。")
+    elif density_030 >= 10:
+        selected = by_threshold[0.30]
+        material_profile = "口播/教程演示"
+        reasons.append("0.30 阈值下分镜密度处于教程/口播素材的可用区间。")
+    else:
+        selected = by_threshold[0.22]
+        material_profile = "稳定产品展示"
+        reasons.append("画面变化密度偏低，降低阈值以保留产品角度或步骤变化。")
+
+    if min_shot_seconds_override is None:
+        reasons.append(
+            f"自动选择最短分镜 {selected['min_shot_seconds']:.2f}s。"
+        )
+    else:
+        reasons.append(
+            f"沿用用户指定的最短分镜 {selected['min_shot_seconds']:.2f}s。"
+        )
+
+    public_trials = [
+        {
+            "material_profile": trial["material_profile"],
+            "scene_threshold": trial["scene_threshold"],
+            "min_shot_seconds": round(trial["min_shot_seconds"], 3),
+            "candidate_count": trial["candidate_count"],
+            "shots_per_minute": trial["shots_per_minute"],
+            "duration_ms": trial["duration_ms"],
+            "raw_event_count": trial["statistics"]["raw_event_count"],
+            "clustered_event_count": trial["statistics"]["clustered_event_count"],
+            "kept_event_count": trial["statistics"]["kept_event_count"],
+            "events_truncated": trial["statistics"]["events_truncated"],
+        }
+        for trial in trials
+    ]
+
+    selected["statistics"]["auto_tuning"] = {
+        "requested": True,
+        "strategy": "local_scene_density_v1",
+        "material_profile": material_profile,
+        "motion_intensity": motion_intensity_label(scan_summary),
+        "selected_scene_threshold": selected["scene_threshold"],
+        "selected_min_shot_seconds": round(selected["min_shot_seconds"], 3),
+        "min_shot_seconds_source": (
+            "user" if min_shot_seconds_override is not None else "auto"
+        ),
+        "scan": {
+            "threshold": AUTO_SCAN_THRESHOLD,
+            "event_count": len(scanned_events),
+            "score_summary": scan_summary,
+        },
+        "trials": public_trials,
+        "reasons": reasons,
+    }
+    return selected
 
 
 def extract_api_key(content: str) -> str:
@@ -668,7 +906,7 @@ def local_only_groups(candidates: list[dict]) -> tuple[list[dict], dict]:
     groups = [
         {
             "candidate_ids": [candidate["id"]],
-            "purpose": "物理分镜",
+            "purpose": "分镜",
             "content": (
                 f"{compact_timestamp(candidate['start_ms'])}-"
                 f"{compact_timestamp(candidate['end_ms'])}"
@@ -1009,8 +1247,21 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_MAX_SCENE_EVENTS,
     )
-    parser.add_argument("--scene-threshold", type=float, default=0.20)
-    parser.add_argument("--min-shot-seconds", type=float, default=0.60)
+    parser.add_argument(
+        "--scene-threshold",
+        type=parse_scene_threshold,
+        default=DEFAULT_SCENE_THRESHOLD,
+        help="Scene-change sensitivity threshold, or auto for local pre-scan tuning.",
+    )
+    parser.add_argument(
+        "--min-shot-seconds",
+        type=float,
+        default=None,
+        help=(
+            "Minimum shot length. Defaults to 0.60 for manual thresholds; "
+            "auto mode chooses a material-aware value unless this is set."
+        ),
+    )
     parser.add_argument(
         "--mode",
         choices=("local", "hybrid"),
@@ -1068,9 +1319,9 @@ def validate_arguments(args: argparse.Namespace) -> None:
         raise ValueError("Provide a TikTok URL or local MP4")
     if not args.output_parent:
         raise ValueError("--output-parent is required")
-    if not 0.01 <= args.scene_threshold <= 1:
-        raise ValueError("--scene-threshold must be between 0.01 and 1")
-    if not 0.1 <= args.min_shot_seconds <= 10:
+    if args.scene_threshold != "auto" and not 0.01 <= args.scene_threshold <= 1:
+        raise ValueError("--scene-threshold must be between 0.01 and 1, or auto")
+    if args.min_shot_seconds is not None and not 0.1 <= args.min_shot_seconds <= 10:
         raise ValueError("--min-shot-seconds must be between 0.1 and 10")
     if args.replace_assets:
         raise ValueError("--replace-assets is only valid with --render-only")
@@ -1127,12 +1378,13 @@ def run_render_only(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
         }
     )
     write_json(run_summary_path, run_summary)
-    return {
+    result = {
         "status": "complete",
         "mode": "render-only",
         "output_dir": str(package_root),
         "render": render_summary,
     }
+    return result
 
 
 def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict:
@@ -1207,22 +1459,48 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
         write_stage_summary(index_dir, status="running", stage=stage)
 
         stage = "detect"
-        events, detection_statistics = detect_scene_events(
-            source,
-            ffmpeg,
-            scene_threshold=args.scene_threshold,
-            max_events=args.max_scene_events,
-            timeout_seconds=args.media_timeout_seconds,
-        )
-        candidates = build_candidate_shots(
-            events,
-            source_probe["duration_ms"],
-            min_shot_ms=round(args.min_shot_seconds * 1000),
-        )
+        auto_tuning = None
+        if args.scene_threshold == "auto":
+            scanned_events = collect_scene_events(
+                source,
+                ffmpeg,
+                scan_threshold=AUTO_SCAN_THRESHOLD,
+                timeout_seconds=args.media_timeout_seconds,
+            )
+            auto_plan = build_auto_tuning_plan(
+                scanned_events,
+                source_probe["duration_ms"],
+                max_events=args.max_scene_events,
+                min_shot_seconds_override=args.min_shot_seconds,
+            )
+            events = auto_plan["events"]
+            detection_statistics = auto_plan["statistics"]
+            candidates = auto_plan["candidates"]
+            scene_threshold = auto_plan["scene_threshold"]
+            min_shot_ms = auto_plan["min_shot_ms"]
+            auto_tuning = detection_statistics["auto_tuning"]
+        else:
+            scene_threshold = float(args.scene_threshold)
+            min_shot_seconds = resolved_min_shot_seconds(args.min_shot_seconds)
+            min_shot_ms = round(min_shot_seconds * 1000)
+            events, detection_statistics = detect_scene_events(
+                source,
+                ffmpeg,
+                scene_threshold=scene_threshold,
+                max_events=args.max_scene_events,
+                timeout_seconds=args.media_timeout_seconds,
+            )
+            candidates = build_candidate_shots(
+                events,
+                source_probe["duration_ms"],
+                min_shot_ms=min_shot_ms,
+            )
         detection = {
             "method": "ffmpeg_scene_score",
-            "scene_threshold": args.scene_threshold,
-            "minimum_candidate_duration_ms": round(args.min_shot_seconds * 1000),
+            "scene_threshold": scene_threshold,
+            "scene_threshold_source": "auto" if auto_tuning else "manual",
+            "scene_threshold_requested": args.scene_threshold,
+            "minimum_candidate_duration_ms": min_shot_ms,
             **detection_statistics,
             "candidate_count": len(candidates),
         }
@@ -1246,6 +1524,7 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
                 "schema_version": 1,
                 "source_sha256": sha256_file(source),
                 "detection": detection,
+                **({"auto_tuning": auto_tuning} if auto_tuning else {}),
                 "quality": quality,
                 "candidates": candidates,
             },
@@ -1293,6 +1572,7 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
             "resources": resources,
             "candidates": candidates,
             "model": model_summary,
+            **({"auto_tuning": auto_tuning} if auto_tuning else {}),
             "segments": segments,
         }
         segments_data["segments"] = normalize_and_validate_segments(segments_data)
@@ -1348,6 +1628,7 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
                 ),
             },
             "detection": segments_data["detection"],
+            **({"auto_tuning": auto_tuning} if auto_tuning else {}),
             "quality": quality,
             "resources": resources,
             "model": model_summary,
@@ -1361,16 +1642,21 @@ def run_new_package(args: argparse.Namespace, ffmpeg: str, ffprobe: str) -> dict
         }
         write_json(index_dir / "run-summary.json", run_summary)
         os.replace(partial_root, final_root)
-        return {
+
+        result = {
             "status": run_summary["status"],
             "mode": mode,
             "output_dir": str(final_root),
             "video_id": video_id,
             "candidate_count": len(candidates),
             "segment_count": len(segments_data["segments"]),
+            "scene_threshold": scene_threshold,
+            "minimum_candidate_duration_ms": min_shot_ms,
+            **({"auto_tuning": auto_tuning} if auto_tuning else {}),
             "usage": model_summary.get("usage", {}),
             "quality": quality,
         }
+        return result
     except Exception as exc:
         if (
             isinstance(partial_root, Path)

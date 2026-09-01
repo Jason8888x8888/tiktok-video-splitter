@@ -2,6 +2,18 @@
 
 All notable changes follow semantic versioning.
 
+## [0.1.0-beta.2] - 2026-09-01
+
+### Added
+
+- Automatic local sensitivity tuning with `--scene-threshold auto`.
+- Auto-tuning evidence in `run-summary.json`, `segments.json`, and `candidates.json`.
+
+### Changed
+
+- The default scene threshold is now `auto` instead of fixed `0.20`.
+- Local objective shot names now use `分镜`, for example `001_分镜_00m00s-00m03s`.
+
 ## [0.1.0-beta.1] - 2026-08-31
 
 ### Added
