@@ -13,7 +13,7 @@ All notable changes follow semantic versioning.
 ### Changed
 
 - Automatic tuning now uses transition density instead of candidate-shot density, so a baseline shot is not miscounted as a transition.
-- CI disables Python bytecode generation, verifies FFmpeg, and pins third-party Actions to immutable commits.
+- CI disables Python bytecode generation, installs and verifies FFmpeg, and pins third-party Actions to immutable commits.
 - Compatibility metadata now describes a remote Agent Skills package executed through Bash.
 
 ### Fixed
